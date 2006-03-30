@@ -1,0 +1,113 @@
+#!/usr/bin/python
+#+
+# This script displays picture files in turn from specified directories,
+# and allows the user to hit keystrokes to apply commands to them.
+#
+# Invoke this script as follows:
+#
+#     SortPictures [options] item [item ...]
+#
+# where each "item" is either the name of an image file or of a
+# directory containg image files to be shown. Valid options are:
+#
+#     --act k:cmd
+#         defines a key binding, where k is a single ASCII character
+#         which, when typed by the user, invokes cmd. This option can be
+#         specified multiple times with different k values, to define multiple
+#         key bindings. When cmd is invoked, occurrences of %s are substituted
+#         with the full name of the image file.
+#    --random
+#         displays the images in a random order.
+#
+# Created 2006 March 30 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
+#-
+
+import sys
+import os
+import random
+import getopt
+import gtk
+
+def DestroyWindow(TheWindow) :
+	gtk.main_quit()
+#end DestroyWindow
+
+def ShowImage(ImageName) :
+	TheImage.set_from_file(ImageName)
+	ImageLabel.set_text(ImageName)
+#end ShowImage
+
+def KeyPressEvent(TheWindow, TheEvent) :
+	global Files, FileIndex
+	# print "Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval) # debug
+	Key = TheEvent.keyval
+	if Key == gtk.keysyms.Down or Key == gtk.keysyms.Right :
+		if FileIndex + 1 < len(Files) :
+			FileIndex += 1
+			ShowImage(Files[FileIndex])
+		#end if
+	elif Key == gtk.keysyms.Up or Key == gtk.keysyms.Left :
+		if FileIndex > 0 :
+			FileIndex -= 1
+			ShowImage(Files[FileIndex])
+		#end if
+	elif Act.has_key(Key) :
+		Cmd = Act[Key] % Files[FileIndex]
+		print Cmd
+		os.system(Cmd)
+	#end if
+	return True
+#end KeyPressEvent
+
+(Opts, Args) = getopt.getopt \
+  (
+	sys.argv[1:],
+	"",
+	["act=", "random"]
+  )
+Files = []
+for Item in Args :
+	if os.path.isdir(Item) :
+		for SubItem in os.listdir(Item) :
+			Files.append(os.path.join(Item, SubItem))
+		#end for
+	else :
+		Files.append(Item)
+	#end if
+#end for
+Act = {}
+RandomOrder = False
+for Keyword, Value in Opts :
+	if Keyword == "--act" :
+		if len(Value) > 2 and Value[1] == ":" :
+			Act[ord(Value[0])] = Value[2:]
+			# print "act %d => \"%s\"" % (ord(Value[0]), Value[2:]) # debug
+		else :
+			raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
+		#end if
+	elif Keyword == "--random" :
+		RandomOrder = True
+	#end if
+#end for
+if len(Files) == 0 :
+	raise getopt.error("Nothing to do")
+#end if
+if RandomOrder :
+	random.shuffle(Files)
+#end if
+FileIndex = 0
+
+MainWindow = gtk.Window()
+MainWindow.connect("destroy", DestroyWindow)
+MainWindow.connect("key_press_event", KeyPressEvent)
+MainWindow.set_border_width(10)
+MainVBox = gtk.VBox(False, 8)
+TheImage = gtk.Image()
+MainVBox.pack_start(TheImage, False, False, 0)
+ImageLabel = gtk.Label()
+MainVBox.pack_start(ImageLabel, False, False, 0)
+MainWindow.add(MainVBox)
+MainWindow.show_all()
+MainWindow.show()
+ShowImage(Files[FileIndex])
+gtk.main()
