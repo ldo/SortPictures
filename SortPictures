@@ -17,9 +17,15 @@
 #         key bindings. When cmd is invoked, occurrences of %s are substituted
 #         with the full name of the image file.
 #    --random
-#         displays the images in a random order.
+#         equivalent to --sort=random
+#    --sort=how
+#         displays the images in order according to how:
+#             none (default) -- no special sorting
+#             mod -- sort by last-mod date
+#             random -- display in random order
 #
 # Created 2006 March 30 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
+# Add --sort 2007 February 10.
 #-
 
 import sys
@@ -28,28 +34,83 @@ import random
 import getopt
 import gtk
 
+#+
+# Useful stuff
+#-
+
+def ForEachFile(ArgList, Action, ActionArg) :
+	"""invokes Action(FileName, ActionArg) for each non-directory item
+	found in ArgList. If an item is not a directory, passes it directly
+	to action; otherwise, passes each file directly contained within it,
+	unless the name ends with "...", in which case all file descendants
+	of the directory are passed."""
+
+	def ForEach(Item, Recurse) :
+		if os.path.isdir(Item) :
+			for Child in os.listdir(Item) :
+				Child = os.path.join(Item, Child)
+				if os.path.isdir(Child) :
+					if Recurse :
+						ForEach(Child, True)
+					#end if
+				else :
+					Action(Child, ActionArg)
+				#end if
+			#end for
+		else :
+			Action(Item, ActionArg)
+		#end if
+	#end ForEach
+
+	for Arg in ArgList :
+		if Arg.endswith("...") :
+			Recurse = True
+			Arg = Arg[0 : -3]
+		else :
+			Recurse = False
+		#end if
+		ForEach(Arg, Recurse)
+	#end for
+#end ForEachFile
+
+#+
+# GUI callbacks
+#-
+
+# globals:
+# TheImage -- GTK image object for showing an image
+# ImageLabel -- GTK label object for showing image name
+#
+# Act -- mapping of actions to perform by keystroke
+# Files -- list of image files to show
+# FileIndex -- index into Files of image being shown
+
 def DestroyWindow(TheWindow) :
+	# called when main window's close box is clicked.
 	gtk.main_quit()
 #end DestroyWindow
 
-def ShowImage(ImageName) :
+def ShowImage() :
+	# displays the specified image file in the main window.
+	ImageName = Files[FileIndex]
 	TheImage.set_from_file(ImageName)
-	ImageLabel.set_text(ImageName)
+	ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
 #end ShowImage
 
 def KeyPressEvent(TheWindow, TheEvent) :
+	# called in response to a keystroke when the main window has the focus.
 	global Files, FileIndex
 	# print "Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval) # debug
 	Key = TheEvent.keyval
 	if Key == gtk.keysyms.Down or Key == gtk.keysyms.Right :
 		if FileIndex + 1 < len(Files) :
 			FileIndex += 1
-			ShowImage(Files[FileIndex])
+			ShowImage()
 		#end if
 	elif Key == gtk.keysyms.Up or Key == gtk.keysyms.Left :
 		if FileIndex > 0 :
 			FileIndex -= 1
-			ShowImage(Files[FileIndex])
+			ShowImage()
 		#end if
 	elif Act.has_key(Key) :
 		Cmd = Act[Key] % Files[FileIndex]
@@ -59,24 +120,45 @@ def KeyPressEvent(TheWindow, TheEvent) :
 	return True
 #end KeyPressEvent
 
+#+
+# Mainline
+#-
+
+def AddFile(Item, Files) :
+	# ForEachFile action to collect names of all image files.
+	Files.append(Item)
+#end AddFile
+
+ModDate = {} # cache of mod dates to avoid repeated lookups
+def ModDateOrder(File1, File2) :
+	"""sort comparison callback which orders files by their last-mod date."""
+	if not ModDate.has_key(File1) :
+		ModDate[File1] = os.stat(File1).st_mtime
+	#end if
+	if not ModDate.has_key(File2) :
+		ModDate[File2] = os.stat(File2).st_mtime
+	#end if
+	return \
+		cmp(ModDate[File1], ModDate[File2])
+#end ModDateOrder
+
+def Order(Files) :
+	# sorts Files according to the function defined by OrderBy.
+	Files.sort(OrderBy)
+#end Order
+
 (Opts, Args) = getopt.getopt \
   (
 	sys.argv[1:],
 	"",
-	["act=", "random"]
+	["act=", "random", "sort="]
   )
+
 Files = []
-for Item in Args :
-	if os.path.isdir(Item) :
-		for SubItem in os.listdir(Item) :
-			Files.append(os.path.join(Item, SubItem))
-		#end for
-	else :
-		Files.append(Item)
-	#end if
-#end for
+ForEachFile(Args, AddFile, Files)
+
 Act = {}
-RandomOrder = False
+Sort = None
 for Keyword, Value in Opts :
 	if Keyword == "--act" :
 		if len(Value) > 2 and Value[1] == ":" :
@@ -86,17 +168,28 @@ for Keyword, Value in Opts :
 			raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
 		#end if
 	elif Keyword == "--random" :
-		RandomOrder = True
+		Sort = random.shuffle
+	elif Keyword == "--sort" :
+		if Value == "random" :
+			Sort = random.shuffle
+		elif Value == "mod" :
+			OrderBy = ModDateOrder
+			Sort = Order
+		elif Value == "none" :
+			Sort = None
+		else :
+			raise getopt.error("Invalid sort option %s" % Value)
+		#end if
 	#end if
 #end for
 if len(Files) == 0 :
 	raise getopt.error("Nothing to do")
 #end if
-if RandomOrder :
-	random.shuffle(Files)
+if Sort != None :
+	Sort(Files)
 #end if
-FileIndex = 0
 
+FileIndex = 0
 MainWindow = gtk.Window()
 MainWindow.connect("destroy", DestroyWindow)
 MainWindow.connect("key_press_event", KeyPressEvent)
@@ -109,5 +202,5 @@ MainVBox.pack_start(ImageLabel, False, False, 0)
 MainWindow.add(MainVBox)
 MainWindow.show_all()
 MainWindow.show()
-ShowImage(Files[FileIndex])
+ShowImage()
 gtk.main()
