@@ -24,14 +24,22 @@
 #             mod -- sort by last-mod date
 #             random -- display in random order
 #
+# Standard keystrokes are:
+#    right or down arrow -- go to next picture
+#    left or up arrow -- go to previous picture
+#    F11 -- rotate picture anticlockwise
+#    F12 -- rotate picture clockwise
+#
 # Created 2006 March 30 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
 # Add --sort 2007 February 10.
+# Scale down large images to fit window and add rotation functions 2007 May 6.
 #-
 
 import sys
 import os
 import random
 import getopt
+import gobject
 import gtk
 
 #+
@@ -78,7 +86,8 @@ def ForEachFile(ArgList, Action, ActionArg) :
 #-
 
 # globals:
-# TheImage -- GTK image object for showing an image
+# TheImage -- GDK pixbuf object containing image being displayed
+# ImageDisplay -- GTK image object for showing an image
 # ImageLabel -- GTK label object for showing image name
 #
 # Act -- mapping of actions to perform by keystroke
@@ -90,11 +99,59 @@ def DestroyWindow(TheWindow) :
 	gtk.main_quit()
 #end DestroyWindow
 
-def ShowImage() :
-	# displays the specified image file in the main window.
+def LoadImage() :
+	# loads the image from the currently selected file.
+	global TheImage
 	ImageName = Files[FileIndex]
-	TheImage.set_from_file(ImageName)
+	try :
+		TheImage = gtk.gdk.pixbuf_new_from_file(ImageName)
+	except gobject.GError :
+		TheImage = None
+	#end try
 	ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
+#end LoadImage
+
+def RotateImage(Clockwise) :
+	# rotates the displayed image by 90 degrees.
+	global TheImage
+	if Clockwise :
+		Direction = gtk.gdk.PIXBUF_ROTATE_CLOCKWISE
+	else :
+		Direction = gtk.gdk.PIXBUF_ROTATE_COUNTERCLOCKWISE
+	#end if
+	if TheImage != None :
+		TheImage = TheImage.rotate_simple(Direction)
+	#end if
+#end RotateImage
+
+def ShowImage() :
+	# displays the currently-loaded image in the main window.
+	if TheImage != None :
+		ImageWidth = TheImage.get_property("width")
+		ImageHeight = TheImage.get_property("height")
+		if ImageWidth > MaxImageDisplay.x or ImageHeight > MaxImageDisplay.y :
+			ScaleFactor = min \
+			  (
+				MaxImageDisplay.x * 1.0 / ImageWidth,
+				MaxImageDisplay.y * 1.0 / ImageHeight
+			  )
+			UseImage = TheImage.scale_simple \
+			  (
+				dest_width = int(round(ScaleFactor * ImageWidth)),
+				dest_height = int(round(ScaleFactor * ImageHeight)),
+				interp_type = gtk.gdk.INTERP_BILINEAR
+			  )
+		else :
+			UseImage = TheImage
+		#end if
+		ImageDisplay.set_from_pixbuf(UseImage)
+	else :
+		ImageDisplay.set_from_stock \
+		  (
+			gtk.STOCK_MISSING_IMAGE,
+			gtk.ICON_SIZE_LARGE_TOOLBAR
+		  )
+	#end if
 #end ShowImage
 
 def KeyPressEvent(TheWindow, TheEvent) :
@@ -105,13 +162,21 @@ def KeyPressEvent(TheWindow, TheEvent) :
 	if Key == gtk.keysyms.Down or Key == gtk.keysyms.Right :
 		if FileIndex + 1 < len(Files) :
 			FileIndex += 1
+			LoadImage()
 			ShowImage()
 		#end if
 	elif Key == gtk.keysyms.Up or Key == gtk.keysyms.Left :
 		if FileIndex > 0 :
 			FileIndex -= 1
+			LoadImage()
 			ShowImage()
 		#end if
+	elif Key == gtk.keysyms.F11 :
+		RotateImage(False)
+		ShowImage()
+	elif Key == gtk.keysyms.F12 :
+		RotateImage(True)
+		ShowImage()
 	elif Act.has_key(Key) :
 		Cmd = Act[Key] % Files[FileIndex]
 		print Cmd
@@ -189,18 +254,26 @@ if Sort != None :
 	Sort(Files)
 #end if
 
+TheImage = None # to begin with
 FileIndex = 0
+# DefaultScreen = gtk.gdk.display_get_default().get_default_screen()
+class MaxImageDisplay :
+	"""maximum bounds of image display"""
+	x = gtk.gdk.screen_width() - 32
+	y = gtk.gdk.screen_height() - 96
+#end MaxImageDisplay
 MainWindow = gtk.Window()
 MainWindow.connect("destroy", DestroyWindow)
 MainWindow.connect("key_press_event", KeyPressEvent)
 MainWindow.set_border_width(10)
 MainVBox = gtk.VBox(False, 8)
-TheImage = gtk.Image()
-MainVBox.pack_start(TheImage, False, False, 0)
+ImageDisplay = gtk.Image()
+MainVBox.pack_start(ImageDisplay, False, False, 0)
 ImageLabel = gtk.Label()
 MainVBox.pack_start(ImageLabel, False, False, 0)
 MainWindow.add(MainVBox)
 MainWindow.show_all()
 MainWindow.show()
+LoadImage()
 ShowImage()
 gtk.main()
