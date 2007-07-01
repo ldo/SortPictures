@@ -23,6 +23,9 @@
 #             none (default) -- no special sorting
 #             mod -- sort by last-mod date
 #             random -- display in random order
+#    --start=n
+#         start the display at picture n in the sequence, instead
+#         of picture 1.
 #
 # Standard keystrokes are:
 #    right or down arrow -- go to next picture
@@ -33,6 +36,7 @@
 # Created 2006 March 30 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
 # Add --sort 2007 February 10.
 # Scale down large images to fit window and add rotation functions 2007 May 6.
+# Add --start option 2007 July 1.
 #-
 
 import sys
@@ -216,7 +220,7 @@ def Order(Files) :
   (
 	sys.argv[1:],
 	"",
-	["act=", "random", "sort="]
+	["act=", "random", "sort=", "start="]
   )
 
 Files = []
@@ -224,6 +228,7 @@ ForEachFile(Args, AddFile, Files)
 
 Act = {}
 Sort = None
+FileIndex = 0
 for Keyword, Value in Opts :
 	if Keyword == "--act" :
 		if len(Value) > 2 and Value[1] == ":" :
@@ -245,17 +250,21 @@ for Keyword, Value in Opts :
 		else :
 			raise getopt.error("Invalid sort option %s" % Value)
 		#end if
+	elif Keyword == "--start" :
+		FileIndex = int(Value) - 1
 	#end if
 #end for
 if len(Files) == 0 :
 	raise getopt.error("Nothing to do")
+#end if
+if FileIndex < 0 or FileIndex >= len(Files) :
+	raise getopt.error("--start index out of range")
 #end if
 if Sort != None :
 	Sort(Files)
 #end if
 
 TheImage = None # to begin with
-FileIndex = 0
 # DefaultScreen = gtk.gdk.display_get_default().get_default_screen()
 class MaxImageDisplay :
 	"""maximum bounds of image display"""
