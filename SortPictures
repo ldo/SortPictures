@@ -22,6 +22,7 @@
 #         displays the images in order according to how:
 #             none (default) -- no special sorting
 #             mod -- sort by last-mod date
+#             name -- sort by name
 #             random -- display in random order
 #    --start=n
 #         start the display at picture n in the sequence, instead
@@ -33,10 +34,7 @@
 #    F11 -- rotate picture anticlockwise
 #    F12 -- rotate picture clockwise
 #
-# Created 2006 March 30 by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
-# Add --sort 2007 February 10.
-# Scale down large images to fit window and add rotation functions 2007 May 6.
-# Add --start option 2007 July 1.
+# Created by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
 #-
 
 import sys
@@ -244,6 +242,9 @@ for Keyword, Value in Opts :
 			Sort = random.shuffle
 		elif Value == "mod" :
 			OrderBy = ModDateOrder
+			Sort = Order
+		elif Value == "name" :
+			OrderBy = cmp
 			Sort = Order
 		elif Value == "none" :
 			Sort = None
