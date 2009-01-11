@@ -18,6 +18,10 @@
 #         with the full name of the image file.
 #    --random
 #         equivalent to --sort=random
+#    --scale=scalefactor
+#         specifies a scale factor to be applied to each image before display.
+#         scalfactor is interpreted as a percentage if it ends with a "%", otherwise
+#         as a number. If omitted, the default is 1.0 (100%).
 #    --sort=how
 #         displays the images in order according to how:
 #             none (default) -- no special sorting
@@ -110,6 +114,9 @@ def LoadImage() :
 	except gobject.GError :
 		TheImage = None
 	#end try
+	if TheImage != None and ScaleFactor != None :
+		TheImage = TheImage.scale_simple(TheImage.get_width() * ScaleFactor, TheImage.get_height() * ScaleFactor, gtk.gdk.INTERP_TILES)
+	#end if
 	ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
 #end LoadImage
 
@@ -218,7 +225,7 @@ def Order(Files) :
   (
 	sys.argv[1:],
 	"",
-	["act=", "random", "sort=", "start="]
+	["act=", "random", "scale=", "sort=", "start="]
   )
 
 Files = []
@@ -227,6 +234,7 @@ ForEachFile(Args, AddFile, Files)
 Act = {}
 Sort = None
 FileIndex = 0
+ScaleFactor = None
 for Keyword, Value in Opts :
 	if Keyword == "--act" :
 		if len(Value) > 2 and Value[1] == ":" :
@@ -237,6 +245,12 @@ for Keyword, Value in Opts :
 		#end if
 	elif Keyword == "--random" :
 		Sort = random.shuffle
+	elif Keyword == "--scale" :
+		if Value.endswith("%") :
+			ScaleFactor = float(Value[:-1]) / 100
+		else :
+			ScaleFactor = float(Value)
+		#end if
 	elif Keyword == "--sort" :
 		if Value == "random" :
 			Sort = random.shuffle
