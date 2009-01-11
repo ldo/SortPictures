@@ -18,10 +18,13 @@
 #         with the full name of the image file.
 #    --random
 #         equivalent to --sort=random
-#    --scale=scalefactor
-#         specifies a scale factor to be applied to each image before display.
-#         scalfactor is interpreted as a percentage if it ends with a "%", otherwise
+#    --scale=scalefactor[,how]
+#         specifies a scale factor and method to be applied to each image before display.
+#         scalefactor is interpreted as a percentage if it ends with a "%", otherwise
 #         as a number. If omitted, the default is 1.0 (100%).
+#         how is the scaling method: "nearest", "tiles", "bilinear" or "hyper"
+#         (see http://www.pygtk.org/docs/pygtk/class-gdkpixbuf.html#method-gdkpixbuf--scale-simple
+#         for the details). If omitted, the default is "tiles".
 #    --sort=how
 #         displays the images in order according to how:
 #             none (default) -- no special sorting
@@ -115,7 +118,7 @@ def LoadImage() :
 		TheImage = None
 	#end try
 	if TheImage != None and ScaleFactor != None :
-		TheImage = TheImage.scale_simple(TheImage.get_width() * ScaleFactor, TheImage.get_height() * ScaleFactor, gtk.gdk.INTERP_TILES)
+		TheImage = TheImage.scale_simple(int(TheImage.get_width() * ScaleFactor), int(TheImage.get_height() * ScaleFactor), ScaleHow)
 	#end if
 	ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
 #end LoadImage
@@ -246,6 +249,19 @@ for Keyword, Value in Opts :
 	elif Keyword == "--random" :
 		Sort = random.shuffle
 	elif Keyword == "--scale" :
+		Value = Value.split(",", 1)
+		if len(Value) == 2 :
+			ScaleHow = \
+				{
+					"nearest" : gtk.gdk.INTERP_NEAREST,
+					"tiles" : gtk.gdk.INTERP_TILES,
+					"bilinear" : gtk.gdk.INTERP_BILINEAR,
+					"hyper" : gtk.gdk.INTERP_HYPER,
+				}[Value[1]]
+		else :
+			ScaleHow = gtk.gdk.INTERP_TILES # default
+		#end if
+		Value = Value[0]
 		if Value.endswith("%") :
 			ScaleFactor = float(Value[:-1]) / 100
 		else :
