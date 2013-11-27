@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #+
 # This script displays picture files in turn from specified directories,
 # and allows the user to hit keystrokes to apply commands to them.
@@ -48,8 +48,11 @@ import sys
 import os
 import random
 import getopt
-import gobject
-import gtk
+from gi.repository import \
+    GObject, \
+    Gdk, \
+	GdkPixbuf, \
+    Gtk
 
 #+
 # Useful stuff
@@ -105,7 +108,7 @@ def ForEachFile(ArgList, Action, ActionArg) :
 
 def DestroyWindow(TheWindow) :
 	# called when main window's close box is clicked.
-	gtk.main_quit()
+	Gtk.main_quit()
 #end DestroyWindow
 
 def LoadImage() :
@@ -113,8 +116,8 @@ def LoadImage() :
 	global TheImage
 	ImageName = Files[FileIndex]
 	try :
-		TheImage = gtk.gdk.pixbuf_new_from_file(ImageName)
-	except gobject.GError :
+		TheImage = GdkPixbuf.Pixbuf.new_from_file(ImageName)
+	except GObject.GError :
 		TheImage = None
 	#end try
 	if TheImage != None and ScaleFactor != None :
@@ -127,9 +130,9 @@ def RotateImage(Clockwise) :
 	# rotates the displayed image by 90 degrees.
 	global TheImage
 	if Clockwise :
-		Direction = gtk.gdk.PIXBUF_ROTATE_CLOCKWISE
+		Direction = GdkPixbuf.PixbufRotation.CLOCKWISE
 	else :
-		Direction = gtk.gdk.PIXBUF_ROTATE_COUNTERCLOCKWISE
+		Direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
 	#end if
 	if TheImage != None :
 		TheImage = TheImage.rotate_simple(Direction)
@@ -151,7 +154,7 @@ def ShowImage() :
 			  (
 				dest_width = int(round(ScaleFactor * ImageWidth)),
 				dest_height = int(round(ScaleFactor * ImageHeight)),
-				interp_type = gtk.gdk.INTERP_BILINEAR
+				interp_type = GdkPixbuf.InterpType.BILINEAR
 			  )
 		else :
 			UseImage = TheImage
@@ -160,8 +163,8 @@ def ShowImage() :
 	else :
 		ImageDisplay.set_from_stock \
 		  (
-			gtk.STOCK_MISSING_IMAGE,
-			gtk.ICON_SIZE_LARGE_TOOLBAR
+			Gtk.STOCK_MISSING_IMAGE,
+			Gtk.IconSize.LARGE_TOOLBAR
 		  )
 	#end if
 #end ShowImage
@@ -169,29 +172,29 @@ def ShowImage() :
 def KeyPressEvent(TheWindow, TheEvent) :
 	# called in response to a keystroke when the main window has the focus.
 	global Files, FileIndex
-	# print "Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval) # debug
+	# print("Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval)) # debug
 	Key = TheEvent.keyval
-	if Key == gtk.keysyms.Down or Key == gtk.keysyms.Right :
+	if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
 		if FileIndex + 1 < len(Files) :
 			FileIndex += 1
 			LoadImage()
 			ShowImage()
 		#end if
-	elif Key == gtk.keysyms.Up or Key == gtk.keysyms.Left :
+	elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
 		if FileIndex > 0 :
 			FileIndex -= 1
 			LoadImage()
 			ShowImage()
 		#end if
-	elif Key == gtk.keysyms.F11 :
+	elif Key == Gdk.KEY_F11 :
 		RotateImage(False)
 		ShowImage()
-	elif Key == gtk.keysyms.F12 :
+	elif Key == Gdk.KEY_F12 :
 		RotateImage(True)
 		ShowImage()
-	elif Act.has_key(Key) :
+	elif Key in Act :
 		Cmd = Act[Key] % Files[FileIndex]
-		print Cmd
+		print(Cmd)
 		os.system(Cmd)
 	#end if
 	return True
@@ -207,21 +210,18 @@ def AddFile(Item, Files) :
 #end AddFile
 
 ModDate = {} # cache of mod dates to avoid repeated lookups
-def ModDateOrder(File1, File2) :
-	"""sort comparison callback which orders files by their last-mod date."""
-	if not ModDate.has_key(File1) :
-		ModDate[File1] = os.stat(File1).st_mtime
-	#end if
-	if not ModDate.has_key(File2) :
-		ModDate[File2] = os.stat(File2).st_mtime
+def ModDateKey(File) :
+	"""sort key callback which orders files by their last-mod date."""
+	if not File in ModDate :
+		ModDate[File] = os.stat(File).st_mtime
 	#end if
 	return \
-		cmp(ModDate[File1], ModDate[File2])
-#end ModDateOrder
+		ModDate[File]
+#end ModDateKey
 
 def Order(Files) :
-	# sorts Files according to the function defined by OrderBy.
-	Files.sort(OrderBy)
+	# sorts Files according to the key mapping defined by SortKey.
+	Files.sort(key = SortKey)
 #end Order
 
 (Opts, Args) = getopt.getopt \
@@ -242,7 +242,7 @@ for Keyword, Value in Opts :
 	if Keyword == "--act" :
 		if len(Value) > 2 and Value[1] == ":" :
 			Act[ord(Value[0])] = Value[2:]
-			# print "act %d => \"%s\"" % (ord(Value[0]), Value[2:]) # debug
+			# print("act %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
 		else :
 			raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
 		#end if
@@ -253,13 +253,13 @@ for Keyword, Value in Opts :
 		if len(Value) == 2 :
 			ScaleHow = \
 				{
-					"nearest" : gtk.gdk.INTERP_NEAREST,
-					"tiles" : gtk.gdk.INTERP_TILES,
-					"bilinear" : gtk.gdk.INTERP_BILINEAR,
-					"hyper" : gtk.gdk.INTERP_HYPER,
+					"nearest" : GdkPixbuf.InterpType.NEAREST,
+					"tiles" : GdkPixbuf.InterpType.TILES,
+					"bilinear" : GdkPixbuf.InterpType.BILINEAR,
+					"hyper" : GdkPixbuf.InterpType.HYPER,
 				}[Value[1]]
 		else :
-			ScaleHow = gtk.gdk.INTERP_TILES # default
+			ScaleHow = GdkPixbuf.InterpType.TILES # default
 		#end if
 		Value = Value[0]
 		if Value.endswith("%") :
@@ -271,10 +271,10 @@ for Keyword, Value in Opts :
 		if Value == "random" :
 			Sort = random.shuffle
 		elif Value == "mod" :
-			OrderBy = ModDateOrder
+			SortKey = ModDateKey
 			Sort = Order
 		elif Value == "name" :
-			OrderBy = cmp
+			SortKey = lambda Name : os.path.split(Name)[1]
 			Sort = Order
 		elif Value == "none" :
 			Sort = None
@@ -296,24 +296,24 @@ if Sort != None :
 #end if
 
 TheImage = None # to begin with
-# DefaultScreen = gtk.gdk.display_get_default().get_default_screen()
+# DefaultScreen = Gdk.display_get_default().get_default_screen()
 class MaxImageDisplay :
 	"""maximum bounds of image display"""
-	x = gtk.gdk.screen_width() - 32
-	y = gtk.gdk.screen_height() - 96
+	x = Gdk.Screen.width() - 32
+	y = Gdk.Screen.height() - 96
 #end MaxImageDisplay
-MainWindow = gtk.Window()
+MainWindow = Gtk.Window()
 MainWindow.connect("destroy", DestroyWindow)
 MainWindow.connect("key_press_event", KeyPressEvent)
 MainWindow.set_border_width(10)
-MainVBox = gtk.VBox(False, 8)
-ImageDisplay = gtk.Image()
+MainVBox = Gtk.VBox(False, 8)
+ImageDisplay = Gtk.Image()
 MainVBox.pack_start(ImageDisplay, False, False, 0)
-ImageLabel = gtk.Label()
+ImageLabel = Gtk.Label()
 MainVBox.pack_start(ImageLabel, False, False, 0)
 MainWindow.add(MainVBox)
 MainWindow.show_all()
 MainWindow.show()
 LoadImage()
 ShowImage()
-gtk.main()
+Gtk.main()
