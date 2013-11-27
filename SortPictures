@@ -23,7 +23,7 @@
 #         scalefactor is interpreted as a percentage if it ends with a "%", otherwise
 #         as a number. If omitted, the default is 1.0 (100%).
 #         how is the scaling method: "nearest", "tiles", "bilinear" or "hyper"
-#         (see http://www.pygtk.org/docs/pygtk/class-gdkpixbuf.html#method-gdkpixbuf--scale-simple
+#         (see https://developer.gnome.org/gdk-pixbuf/stable/gdk-pixbuf-Scaling.html#gdk-pixbuf-scale-simple
 #         for the details). If omitted, the default is "tiles".
 #    --sort=how
 #         displays the images in order according to how:
