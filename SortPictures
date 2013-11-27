@@ -51,7 +51,7 @@ import getopt
 from gi.repository import \
     GObject, \
     Gdk, \
-	GdkPixbuf, \
+    GdkPixbuf, \
     Gtk
 
 #+
@@ -59,38 +59,38 @@ from gi.repository import \
 #-
 
 def ForEachFile(ArgList, Action, ActionArg) :
-	"""invokes Action(FileName, ActionArg) for each non-directory item
-	found in ArgList. If an item is not a directory, passes it directly
-	to action; otherwise, passes each file directly contained within it,
-	unless the name ends with "...", in which case all file descendants
-	of the directory are passed."""
+    """invokes Action(FileName, ActionArg) for each non-directory item
+    found in ArgList. If an item is not a directory, passes it directly
+    to action; otherwise, passes each file directly contained within it,
+    unless the name ends with "...", in which case all file descendants
+    of the directory are passed."""
 
-	def ForEach(Item, Recurse) :
-		if os.path.isdir(Item) :
-			for Child in os.listdir(Item) :
-				Child = os.path.join(Item, Child)
-				if os.path.isdir(Child) :
-					if Recurse :
-						ForEach(Child, True)
-					#end if
-				else :
-					Action(Child, ActionArg)
-				#end if
-			#end for
-		else :
-			Action(Item, ActionArg)
-		#end if
-	#end ForEach
+    def ForEach(Item, Recurse) :
+        if os.path.isdir(Item) :
+            for Child in os.listdir(Item) :
+                Child = os.path.join(Item, Child)
+                if os.path.isdir(Child) :
+                    if Recurse :
+                        ForEach(Child, True)
+                    #end if
+                else :
+                    Action(Child, ActionArg)
+                #end if
+            #end for
+        else :
+            Action(Item, ActionArg)
+        #end if
+    #end ForEach
 
-	for Arg in ArgList :
-		if Arg.endswith("...") :
-			Recurse = True
-			Arg = Arg[0 : -3]
-		else :
-			Recurse = False
-		#end if
-		ForEach(Arg, Recurse)
-	#end for
+    for Arg in ArgList :
+        if Arg.endswith("...") :
+            Recurse = True
+            Arg = Arg[0 : -3]
+        else :
+            Recurse = False
+        #end if
+        ForEach(Arg, Recurse)
+    #end for
 #end ForEachFile
 
 #+
@@ -107,97 +107,97 @@ def ForEachFile(ArgList, Action, ActionArg) :
 # FileIndex -- index into Files of image being shown
 
 def DestroyWindow(TheWindow) :
-	# called when main window's close box is clicked.
-	Gtk.main_quit()
+    # called when main window's close box is clicked.
+    Gtk.main_quit()
 #end DestroyWindow
 
 def LoadImage() :
-	# loads the image from the currently selected file.
-	global TheImage
-	ImageName = Files[FileIndex]
-	try :
-		TheImage = GdkPixbuf.Pixbuf.new_from_file(ImageName)
-	except GObject.GError :
-		TheImage = None
-	#end try
-	if TheImage != None and ScaleFactor != None :
-		TheImage = TheImage.scale_simple(int(TheImage.get_width() * ScaleFactor), int(TheImage.get_height() * ScaleFactor), ScaleHow)
-	#end if
-	ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
+    # loads the image from the currently selected file.
+    global TheImage
+    ImageName = Files[FileIndex]
+    try :
+        TheImage = GdkPixbuf.Pixbuf.new_from_file(ImageName)
+    except GObject.GError :
+        TheImage = None
+    #end try
+    if TheImage != None and ScaleFactor != None :
+        TheImage = TheImage.scale_simple(int(TheImage.get_width() * ScaleFactor), int(TheImage.get_height() * ScaleFactor), ScaleHow)
+    #end if
+    ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
 #end LoadImage
 
 def RotateImage(Clockwise) :
-	# rotates the displayed image by 90 degrees.
-	global TheImage
-	if Clockwise :
-		Direction = GdkPixbuf.PixbufRotation.CLOCKWISE
-	else :
-		Direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
-	#end if
-	if TheImage != None :
-		TheImage = TheImage.rotate_simple(Direction)
-	#end if
+    # rotates the displayed image by 90 degrees.
+    global TheImage
+    if Clockwise :
+        Direction = GdkPixbuf.PixbufRotation.CLOCKWISE
+    else :
+        Direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
+    #end if
+    if TheImage != None :
+        TheImage = TheImage.rotate_simple(Direction)
+    #end if
 #end RotateImage
 
 def ShowImage() :
-	# displays the currently-loaded image in the main window.
-	if TheImage != None :
-		ImageWidth = TheImage.get_property("width")
-		ImageHeight = TheImage.get_property("height")
-		if ImageWidth > MaxImageDisplay.x or ImageHeight > MaxImageDisplay.y :
-			ScaleFactor = min \
-			  (
-				MaxImageDisplay.x * 1.0 / ImageWidth,
-				MaxImageDisplay.y * 1.0 / ImageHeight
-			  )
-			UseImage = TheImage.scale_simple \
-			  (
-				dest_width = int(round(ScaleFactor * ImageWidth)),
-				dest_height = int(round(ScaleFactor * ImageHeight)),
-				interp_type = GdkPixbuf.InterpType.BILINEAR
-			  )
-		else :
-			UseImage = TheImage
-		#end if
-		ImageDisplay.set_from_pixbuf(UseImage)
-	else :
-		ImageDisplay.set_from_stock \
-		  (
-			Gtk.STOCK_MISSING_IMAGE,
-			Gtk.IconSize.LARGE_TOOLBAR
-		  )
-	#end if
+    # displays the currently-loaded image in the main window.
+    if TheImage != None :
+        ImageWidth = TheImage.get_property("width")
+        ImageHeight = TheImage.get_property("height")
+        if ImageWidth > MaxImageDisplay.x or ImageHeight > MaxImageDisplay.y :
+            ScaleFactor = min \
+              (
+                MaxImageDisplay.x * 1.0 / ImageWidth,
+                MaxImageDisplay.y * 1.0 / ImageHeight
+              )
+            UseImage = TheImage.scale_simple \
+              (
+                dest_width = int(round(ScaleFactor * ImageWidth)),
+                dest_height = int(round(ScaleFactor * ImageHeight)),
+                interp_type = GdkPixbuf.InterpType.BILINEAR
+              )
+        else :
+            UseImage = TheImage
+        #end if
+        ImageDisplay.set_from_pixbuf(UseImage)
+    else :
+        ImageDisplay.set_from_stock \
+          (
+            Gtk.STOCK_MISSING_IMAGE,
+            Gtk.IconSize.LARGE_TOOLBAR
+          )
+    #end if
 #end ShowImage
 
 def KeyPressEvent(TheWindow, TheEvent) :
-	# called in response to a keystroke when the main window has the focus.
-	global Files, FileIndex
-	# print("Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval)) # debug
-	Key = TheEvent.keyval
-	if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
-		if FileIndex + 1 < len(Files) :
-			FileIndex += 1
-			LoadImage()
-			ShowImage()
-		#end if
-	elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
-		if FileIndex > 0 :
-			FileIndex -= 1
-			LoadImage()
-			ShowImage()
-		#end if
-	elif Key == Gdk.KEY_F11 :
-		RotateImage(False)
-		ShowImage()
-	elif Key == Gdk.KEY_F12 :
-		RotateImage(True)
-		ShowImage()
-	elif Key in Act :
-		Cmd = Act[Key] % Files[FileIndex]
-		print(Cmd)
-		os.system(Cmd)
-	#end if
-	return True
+    # called in response to a keystroke when the main window has the focus.
+    global Files, FileIndex
+    # print("Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval)) # debug
+    Key = TheEvent.keyval
+    if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
+        if FileIndex + 1 < len(Files) :
+            FileIndex += 1
+            LoadImage()
+            ShowImage()
+        #end if
+    elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
+        if FileIndex > 0 :
+            FileIndex -= 1
+            LoadImage()
+            ShowImage()
+        #end if
+    elif Key == Gdk.KEY_F11 :
+        RotateImage(False)
+        ShowImage()
+    elif Key == Gdk.KEY_F12 :
+        RotateImage(True)
+        ShowImage()
+    elif Key in Act :
+        Cmd = Act[Key] % Files[FileIndex]
+        print(Cmd)
+        os.system(Cmd)
+    #end if
+    return True
 #end KeyPressEvent
 
 #+
@@ -205,30 +205,30 @@ def KeyPressEvent(TheWindow, TheEvent) :
 #-
 
 def AddFile(Item, Files) :
-	# ForEachFile action to collect names of all image files.
-	Files.append(Item)
+    # ForEachFile action to collect names of all image files.
+    Files.append(Item)
 #end AddFile
 
 ModDate = {} # cache of mod dates to avoid repeated lookups
 def ModDateKey(File) :
-	"""sort key callback which orders files by their last-mod date."""
-	if not File in ModDate :
-		ModDate[File] = os.stat(File).st_mtime
-	#end if
-	return \
-		ModDate[File]
+    """sort key callback which orders files by their last-mod date."""
+    if not File in ModDate :
+        ModDate[File] = os.stat(File).st_mtime
+    #end if
+    return \
+        ModDate[File]
 #end ModDateKey
 
 def Order(Files) :
-	# sorts Files according to the key mapping defined by SortKey.
-	Files.sort(key = SortKey)
+    # sorts Files according to the key mapping defined by SortKey.
+    Files.sort(key = SortKey)
 #end Order
 
 (Opts, Args) = getopt.getopt \
   (
-	sys.argv[1:],
-	"",
-	["act=", "random", "scale=", "sort=", "start="]
+    sys.argv[1:],
+    "",
+    ["act=", "random", "scale=", "sort=", "start="]
   )
 
 Files = []
@@ -239,68 +239,68 @@ Sort = None
 FileIndex = 0
 ScaleFactor = None
 for Keyword, Value in Opts :
-	if Keyword == "--act" :
-		if len(Value) > 2 and Value[1] == ":" :
-			Act[ord(Value[0])] = Value[2:]
-			# print("act %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
-		else :
-			raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
-		#end if
-	elif Keyword == "--random" :
-		Sort = random.shuffle
-	elif Keyword == "--scale" :
-		Value = Value.split(",", 1)
-		if len(Value) == 2 :
-			ScaleHow = \
-				{
-					"nearest" : GdkPixbuf.InterpType.NEAREST,
-					"tiles" : GdkPixbuf.InterpType.TILES,
-					"bilinear" : GdkPixbuf.InterpType.BILINEAR,
-					"hyper" : GdkPixbuf.InterpType.HYPER,
-				}[Value[1]]
-		else :
-			ScaleHow = GdkPixbuf.InterpType.TILES # default
-		#end if
-		Value = Value[0]
-		if Value.endswith("%") :
-			ScaleFactor = float(Value[:-1]) / 100
-		else :
-			ScaleFactor = float(Value)
-		#end if
-	elif Keyword == "--sort" :
-		if Value == "random" :
-			Sort = random.shuffle
-		elif Value == "mod" :
-			SortKey = ModDateKey
-			Sort = Order
-		elif Value == "name" :
-			SortKey = lambda Name : os.path.split(Name)[1]
-			Sort = Order
-		elif Value == "none" :
-			Sort = None
-		else :
-			raise getopt.error("Invalid sort option %s" % Value)
-		#end if
-	elif Keyword == "--start" :
-		FileIndex = int(Value) - 1
-	#end if
+    if Keyword == "--act" :
+        if len(Value) > 2 and Value[1] == ":" :
+            Act[ord(Value[0])] = Value[2:]
+            # print("act %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
+        else :
+            raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
+        #end if
+    elif Keyword == "--random" :
+        Sort = random.shuffle
+    elif Keyword == "--scale" :
+        Value = Value.split(",", 1)
+        if len(Value) == 2 :
+            ScaleHow = \
+                {
+                    "nearest" : GdkPixbuf.InterpType.NEAREST,
+                    "tiles" : GdkPixbuf.InterpType.TILES,
+                    "bilinear" : GdkPixbuf.InterpType.BILINEAR,
+                    "hyper" : GdkPixbuf.InterpType.HYPER,
+                }[Value[1]]
+        else :
+            ScaleHow = GdkPixbuf.InterpType.TILES # default
+        #end if
+        Value = Value[0]
+        if Value.endswith("%") :
+            ScaleFactor = float(Value[:-1]) / 100
+        else :
+            ScaleFactor = float(Value)
+        #end if
+    elif Keyword == "--sort" :
+        if Value == "random" :
+            Sort = random.shuffle
+        elif Value == "mod" :
+            SortKey = ModDateKey
+            Sort = Order
+        elif Value == "name" :
+            SortKey = lambda Name : os.path.split(Name)[1]
+            Sort = Order
+        elif Value == "none" :
+            Sort = None
+        else :
+            raise getopt.error("Invalid sort option %s" % Value)
+        #end if
+    elif Keyword == "--start" :
+        FileIndex = int(Value) - 1
+    #end if
 #end for
 if len(Files) == 0 :
-	raise getopt.error("Nothing to do")
+    raise getopt.error("Nothing to do")
 #end if
 if FileIndex < 0 or FileIndex >= len(Files) :
-	raise getopt.error("--start index out of range")
+    raise getopt.error("--start index out of range")
 #end if
 if Sort != None :
-	Sort(Files)
+    Sort(Files)
 #end if
 
 TheImage = None # to begin with
 # DefaultScreen = Gdk.display_get_default().get_default_screen()
 class MaxImageDisplay :
-	"""maximum bounds of image display"""
-	x = Gdk.Screen.width() - 32
-	y = Gdk.Screen.height() - 96
+    """maximum bounds of image display"""
+    x = Gdk.Screen.width() - 32
+    y = Gdk.Screen.height() - 96
 #end MaxImageDisplay
 MainWindow = Gtk.Window()
 MainWindow.connect("destroy", DestroyWindow)
