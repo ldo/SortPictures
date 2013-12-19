@@ -10,12 +10,16 @@
 # where each "item" is either the name of an image file or of a
 # directory containg image files to be shown. Valid options are:
 #
-#     --act k:cmd
+#     --act=k:cmd
 #         defines a key binding, where k is a single ASCII character
 #         which, when typed by the user, invokes cmd. This option can be
 #         specified multiple times with different k values, to define multiple
 #         key bindings. When cmd is invoked, occurrences of %s are substituted
 #         with the full name of the image file.
+#    --move=k:dir
+#         defines a key binding, where k is a single ASCII character
+#         which, when typed by the user, will move the current file into the
+#         directory dir.
 #    --random
 #         equivalent to --sort=random
 #    --scale=scalefactor[,how]
@@ -82,6 +86,7 @@ def ForEachFile(ArgList, Action, ActionArg) :
         #end if
     #end ForEach
 
+#begin ForEachFile
     for Arg in ArgList :
         if Arg.endswith("...") :
             Recurse = True
@@ -92,6 +97,42 @@ def ForEachFile(ArgList, Action, ActionArg) :
         ForEach(Arg, Recurse)
     #end for
 #end ForEachFile
+
+#+
+# Keypress actions
+#-
+
+def MakeRunCmd(Fmt) :
+    """returns a function which substitutes its argument into Fmt and
+    executes the result as a shell command."""
+
+    def RunCmd(FileName) :
+        Cmd = Fmt % FileName
+        print(Cmd)
+        os.system(Cmd)
+    #end RunCmd
+
+#begin MakeRunCmd
+    return \
+        RunCmd
+#end MakeRunCmd
+
+def MakeMoveCmd(Dir) :
+    """returns a function which moves the file named by its argument into Dir."""
+
+    def MoveCmd(FileName) :
+        DstName = os.path.join(Dir, os.path.basename(FileName))
+        print("move %s => %s" % (FileName, DstName))
+        os.rename(FileName, DstName)
+    #end MoveCmd
+
+#begin MakeMoveCmd
+    if not os.path.isdir(Dir) :
+        raise RuntimeError("“%” is not a directory" % Dir)
+    #end if
+    return \
+        MoveCmd
+#end MakeMoveCmd
 
 #+
 # GUI callbacks
@@ -193,9 +234,7 @@ def KeyPressEvent(TheWindow, TheEvent) :
         RotateImage(True)
         ShowImage()
     elif Key in Act :
-        Cmd = Act[Key] % Files[FileIndex]
-        print(Cmd)
-        os.system(Cmd)
+        Act[Key](Files[FileIndex])
     #end if
     return True
 #end KeyPressEvent
@@ -228,7 +267,7 @@ def Order(Files) :
   (
     sys.argv[1:],
     "",
-    ["act=", "random", "scale=", "sort=", "start="]
+    ["act=", "move=", "random", "scale=", "sort=", "start="]
   )
 
 Files = []
@@ -241,10 +280,17 @@ ScaleFactor = None
 for Keyword, Value in Opts :
     if Keyword == "--act" :
         if len(Value) > 2 and Value[1] == ":" :
-            Act[ord(Value[0])] = Value[2:]
+            Act[ord(Value[0])] = MakeRunCmd(Value[2:])
             # print("act %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
         else :
             raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
+        #end if
+    elif Keyword == "--move" :
+        if len(Value) > 2 and Value[1] == ":" :
+            Act[ord(Value[0])] = MakeMoveCmd(Value[2:])
+            # print("move %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
+        else :
+            raise getopt.error("Invalid --move syntax: \"%s\"" % Value)
         #end if
     elif Keyword == "--random" :
         Sort = random.shuffle
