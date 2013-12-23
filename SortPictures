@@ -42,6 +42,7 @@
 # Standard keystrokes are:
 #    right or down arrow -- go to next picture
 #    left or up arrow -- go to previous picture
+#    F1 -- write filename path to standard output
 #    F11 -- rotate picture anticlockwise
 #    F12 -- rotate picture clockwise
 #
@@ -227,6 +228,8 @@ def KeyPressEvent(TheWindow, TheEvent) :
             LoadImage()
             ShowImage()
         #end if
+    elif Key == Gdk.KEY_F1 :
+        sys.stdout.write(Files[FileIndex] + "\n")
     elif Key == Gdk.KEY_F11 :
         RotateImage(False)
         ShowImage()
