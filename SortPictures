@@ -129,7 +129,7 @@ def MakeMoveCmd(Dir) :
 
 #begin MakeMoveCmd
     if not os.path.isdir(Dir) :
-        raise RuntimeError("“%” is not a directory" % Dir)
+        raise RuntimeError("“%s” is not a directory" % Dir)
     #end if
     return \
         MoveCmd
