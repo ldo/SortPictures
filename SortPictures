@@ -103,37 +103,37 @@ def ForEachFile(ArgList, Action, ActionArg) :
 # Keypress actions
 #-
 
-def MakeRunCmd(Fmt) :
+def MakeRunCmdAction(Fmt) :
     """returns a function which substitutes its argument into Fmt and
     executes the result as a shell command."""
 
-    def RunCmd(FileName) :
+    def RunCmdAction(FileName) :
         Cmd = Fmt % FileName
         print(Cmd)
         os.system(Cmd)
-    #end RunCmd
+    #end RunCmdAction
 
-#begin MakeRunCmd
+#begin MakeRunCmdAction
     return \
-        RunCmd
-#end MakeRunCmd
+        RunCmdAction
+#end MakeRunCmdAction
 
-def MakeMoveCmd(Dir) :
+def MakeMoveAction(Dir) :
     """returns a function which moves the file named by its argument into Dir."""
 
-    def MoveCmd(FileName) :
+    def MoveAction(FileName) :
         DstName = os.path.join(Dir, os.path.basename(FileName))
         print("move %s => %s" % (FileName, DstName))
         os.rename(FileName, DstName)
-    #end MoveCmd
+    #end MoveAction
 
-#begin MakeMoveCmd
+#begin MakeMoveAction
     if not os.path.isdir(Dir) :
         raise RuntimeError("“%s” is not a directory" % Dir)
     #end if
     return \
-        MoveCmd
-#end MakeMoveCmd
+        MoveAction
+#end MakeMoveAction
 
 #+
 # GUI callbacks
@@ -283,14 +283,14 @@ ScaleFactor = None
 for Keyword, Value in Opts :
     if Keyword == "--act" :
         if len(Value) > 2 and Value[1] == ":" :
-            Act[ord(Value[0])] = MakeRunCmd(Value[2:])
+            Act[ord(Value[0])] = MakeRunCmdAction(Value[2:])
             # print("act %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
         else :
             raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
         #end if
     elif Keyword == "--move" :
         if len(Value) > 2 and Value[1] == ":" :
-            Act[ord(Value[0])] = MakeMoveCmd(Value[2:])
+            Act[ord(Value[0])] = MakeMoveAction(Value[2:])
             # print("move %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
         else :
             raise getopt.error("Invalid --move syntax: \"%s\"" % Value)
