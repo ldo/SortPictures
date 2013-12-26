@@ -19,7 +19,12 @@
 #    --move=k:dir
 #         defines a key binding, where k is a single ASCII character
 #         which, when typed by the user, will move the current file into the
-#         directory dir.
+#         directory dir, which must already exist.
+#    --movec=k:dir
+#         defines a key binding, where k is a single ASCII character
+#         which, when typed by the user, will move the current file into the
+#         directory dir. The directory will be created when the first file is moved
+#         into it if it doesn’t already exist.
 #    --random
 #         equivalent to --sort=random
 #    --scale=scalefactor[,how]
@@ -118,17 +123,28 @@ def MakeRunCmdAction(Fmt) :
         RunCmdAction
 #end MakeRunCmdAction
 
-def MakeMoveAction(Dir) :
+def MakeMoveAction(Dir, CreateIf) :
     """returns a function which moves the file named by its argument into Dir."""
 
     def MoveAction(FileName) :
+        nonlocal Exists
+        if not Exists :
+            os.mkdir(Dir)
+            print("dir “%s” created" % Dir)
+            Exists = True
+        #end if
         DstName = os.path.join(Dir, os.path.basename(FileName))
         print("move %s => %s" % (FileName, DstName))
         os.rename(FileName, DstName)
     #end MoveAction
 
 #begin MakeMoveAction
-    if not os.path.isdir(Dir) :
+    Exists = os.path.isdir(Dir)
+    if (
+            not Exists
+        and
+            (not CreateIf or os.path.lexists(Dir))
+    ) :
         raise RuntimeError("“%s” is not a directory" % Dir)
     #end if
     return \
@@ -270,7 +286,7 @@ def Order(Files) :
   (
     sys.argv[1:],
     "",
-    ["act=", "move=", "random", "scale=", "sort=", "start="]
+    ["act=", "move=", "movec=", "random", "scale=", "sort=", "start="]
   )
 
 Files = []
@@ -288,9 +304,9 @@ for Keyword, Value in Opts :
         else :
             raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
         #end if
-    elif Keyword == "--move" :
+    elif Keyword == "--move" or Keyword == "--movec" :
         if len(Value) > 2 and Value[1] == ":" :
-            Act[ord(Value[0])] = MakeMoveAction(Value[2:])
+            Act[ord(Value[0])] = MakeMoveAction(Value[2:], Keyword == "--movec")
             # print("move %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
         else :
             raise getopt.error("Invalid --move syntax: \"%s\"" % Value)
