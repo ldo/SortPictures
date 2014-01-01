@@ -25,6 +25,12 @@
 #         which, when typed by the user, will move the current file into the
 #         directory dir. The directory will be created when the first file is moved
 #         into it if it doesn’t already exist.
+#    --movesub=k:dir
+#         defines a key binding, where k is a single ASCII character
+#         which, when typed by the user, will move the current file into the
+#         subdirectory of dir with the same name as its current immediate parent
+#         directory. The destination subdirectory of that name will be created
+#         if it doesn’t already exist.
 #    --random
 #         equivalent to --sort=random
 #    --scale=scalefactor[,how]
@@ -51,7 +57,7 @@
 #    F11 -- rotate picture anticlockwise
 #    F12 -- rotate picture clockwise
 #
-# Created by Lawrence D'Oliveiro <ldo@geek-central.gen.nz>.
+# Created by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 #-
 
 import sys
@@ -151,6 +157,30 @@ def MakeMoveAction(Dir, CreateIf) :
         MoveAction
 #end MakeMoveAction
 
+def MakeMoveSubAction(Dir) :
+    """returns a function which moves the file named by its argument into
+    the corresponding subdirectory of Dir."""
+
+    def MoveSubAction(FileName) :
+        Parent, Child = os.path.split(FileName)
+        Grandparent, Parent = os.path.split(Parent)
+        DestDir = os.path.join(Dir, Parent)
+        if not os.path.isdir(DestDir) :
+            if os.path.lexists(DestDir) :
+                raise RuntimeError("“%s” is not a directory" % DestDir)
+            #end if
+            os.mkdir(DestDir)
+        #end if
+        DstName = os.path.join(DestDir, Child)
+        print("move %s => %s" % (FileName, DstName))
+        os.rename(FileName, DstName)
+    #end MoveSubAction
+
+#begin MakeMoveSubAction
+    return \
+        MoveSubAction
+#end MakeMoveSubAction
+
 #+
 # GUI callbacks
 #-
@@ -165,7 +195,7 @@ def MakeMoveAction(Dir, CreateIf) :
 # FileIndex -- index into Files of image being shown
 
 def DestroyWindow(TheWindow) :
-    # called when main window's close box is clicked.
+    # called when main window’s close box is clicked.
     Gtk.main_quit()
 #end DestroyWindow
 
@@ -262,6 +292,14 @@ def KeyPressEvent(TheWindow, TheEvent) :
 # Mainline
 #-
 
+def SetAct(Keyword, Value, MakeAction) :
+    if len(Value) > 2 and Value[1] == ":" :
+        Act[ord(Value[0])] = MakeAction(Value[2:])
+    else :
+        raise getopt.error("Invalid %s syntax: %s" % (Keyword, repr(Value)))
+    #end if
+#end SetAct
+
 def AddFile(Item, Files) :
     # ForEachFile action to collect names of all image files.
     Files.append(Item)
@@ -286,7 +324,7 @@ def Order(Files) :
   (
     sys.argv[1:],
     "",
-    ["act=", "move=", "movec=", "random", "scale=", "sort=", "start="]
+    ["act=", "move=", "movec=", "movesub=", "random", "scale=", "sort=", "start="]
   )
 
 Files = []
@@ -298,19 +336,11 @@ FileIndex = 0
 ScaleFactor = None
 for Keyword, Value in Opts :
     if Keyword == "--act" :
-        if len(Value) > 2 and Value[1] == ":" :
-            Act[ord(Value[0])] = MakeRunCmdAction(Value[2:])
-            # print("act %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
-        else :
-            raise getopt.error("Invalid --act syntax: \"%s\"" % Value)
-        #end if
+        SetAct(Keyword, Value, MakeRunCmdAction)
     elif Keyword == "--move" or Keyword == "--movec" :
-        if len(Value) > 2 and Value[1] == ":" :
-            Act[ord(Value[0])] = MakeMoveAction(Value[2:], Keyword == "--movec")
-            # print("move %d => \"%s\"" % (ord(Value[0]), Value[2:])) # debug
-        else :
-            raise getopt.error("Invalid --move syntax: \"%s\"" % Value)
-        #end if
+        SetAct(Keyword, Value, lambda Arg : MakeMoveAction(Arg, Keyword == "--movec"))
+    elif Keyword == "--movesub" :
+        SetAct(Keyword, Value, MakeMoveSubAction)
     elif Keyword == "--random" :
         Sort = random.shuffle
     elif Keyword == "--scale" :
