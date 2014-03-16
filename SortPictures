@@ -56,6 +56,7 @@
 #    F1 -- write filename path to standard output
 #    F11 -- rotate picture anticlockwise
 #    F12 -- rotate picture clockwise
+#    CTRL/Z -- undo last move/movec/movesub action
 #
 # Created by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 #-
@@ -142,6 +143,12 @@ def MakeMoveAction(Dir, CreateIf) :
         DstName = os.path.join(Dir, os.path.basename(FileName))
         print("move %s => %s" % (FileName, DstName))
         os.rename(FileName, DstName)
+        def Undo() :
+            print("restore %s => %s" % (DstName, FileName))
+            os.rename(DstName, FileName)
+        #end Undo
+        return \
+            Undo
     #end MoveAction
 
 #begin MakeMoveAction
@@ -174,6 +181,12 @@ def MakeMoveSubAction(Dir) :
         DstName = os.path.join(DestDir, Child)
         print("move %s => %s" % (FileName, DstName))
         os.rename(FileName, DstName)
+        def Undo() :
+            print("restore %s => %s" % (DstName, FileName))
+            os.rename(DstName, FileName)
+        #end Undo
+        return \
+            Undo
     #end MoveSubAction
 
 #begin MakeMoveSubAction
@@ -259,31 +272,45 @@ def ShowImage() :
 
 def KeyPressEvent(TheWindow, TheEvent) :
     # called in response to a keystroke when the main window has the focus.
-    global Files, FileIndex
+    global Files, FileIndex, LastUndo
     # print("Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval)) # debug
+    # print("Event %s" % repr({k : getattr(TheEvent, k) for k in dir(TheEvent) if not k.startswith("_")})) # debug
     Key = TheEvent.keyval
-    if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
-        if FileIndex + 1 < len(Files) :
-            FileIndex += 1
-            LoadImage()
+    Modifiers = TheEvent.state
+    if Modifiers == 0 :
+        if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
+            if FileIndex + 1 < len(Files) :
+                FileIndex += 1
+                LoadImage()
+                ShowImage()
+            #end if
+        elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
+            if FileIndex > 0 :
+                FileIndex -= 1
+                LoadImage()
+                ShowImage()
+            #end if
+        elif Key == Gdk.KEY_F1 :
+            sys.stdout.write(Files[FileIndex] + "\n")
+        elif Key == Gdk.KEY_F11 :
+            RotateImage(False)
             ShowImage()
-        #end if
-    elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
-        if FileIndex > 0 :
-            FileIndex -= 1
-            LoadImage()
+        elif Key == Gdk.KEY_F12 :
+            RotateImage(True)
             ShowImage()
+        elif Key in Act :
+            LastUndo = Act[Key](Files[FileIndex])
         #end if
-    elif Key == Gdk.KEY_F1 :
-        sys.stdout.write(Files[FileIndex] + "\n")
-    elif Key == Gdk.KEY_F11 :
-        RotateImage(False)
-        ShowImage()
-    elif Key == Gdk.KEY_F12 :
-        RotateImage(True)
-        ShowImage()
-    elif Key in Act :
-        Act[Key](Files[FileIndex])
+    elif Modifiers == Gdk.ModifierType.CONTROL_MASK :
+        if Key == Gdk.KEY_z :
+            if LastUndo != None :
+                Do = LastUndo
+                LastUndo = None
+                Do()
+                LoadImage()
+                ShowImage()
+            #end if
+        #end if
     #end if
     return True
 #end KeyPressEvent
