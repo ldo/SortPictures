@@ -213,7 +213,7 @@ def DestroyWindow(TheWindow) :
 #end DestroyWindow
 
 def LoadImage() :
-    # loads the image from the currently selected file.
+    # loads and shows the image from the currently selected file.
     global TheImage
     ImageName = Files[FileIndex]
     try :
@@ -225,6 +225,7 @@ def LoadImage() :
         TheImage = TheImage.scale_simple(int(TheImage.get_width() * ScaleFactor), int(TheImage.get_height() * ScaleFactor), ScaleHow)
     #end if
     ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
+    ShowImage()
 #end LoadImage
 
 def RotateImage(Clockwise) :
@@ -300,13 +301,11 @@ def KeyPressEvent(TheWindow, TheEvent) :
             if FileIndex + 1 < len(Files) :
                 FileIndex += 1
                 LoadImage()
-                ShowImage()
             #end if
         elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
             if FileIndex > 0 :
                 FileIndex -= 1
                 LoadImage()
-                ShowImage()
             #end if
         elif Key == Gdk.KEY_F1 :
             sys.stdout.write(Files[FileIndex] + "\n")
@@ -326,7 +325,6 @@ def KeyPressEvent(TheWindow, TheEvent) :
                 LastUndo = None
                 Do()
                 LoadImage()
-                ShowImage()
             #end if
         #end if
     #end if
@@ -455,5 +453,4 @@ MainWindow.add(MainVBox)
 MainWindow.show_all()
 MainWindow.show()
 LoadImage()
-ShowImage()
 Gtk.main()
