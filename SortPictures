@@ -273,10 +273,28 @@ def ShowImage() :
 def KeyPressEvent(TheWindow, TheEvent) :
     # called in response to a keystroke when the main window has the focus.
     global Files, FileIndex, LastUndo
-    # print("Keypress type %d val %d" % (TheEvent.type, TheEvent.keyval)) # debug
+    # print("Keypress type %d val %d mods %#x" % (TheEvent.type, TheEvent.keyval, TheEvent.state)) # debug
     # print("Event %s" % repr({k : getattr(TheEvent, k) for k in dir(TheEvent) if not k.startswith("_")})) # debug
     Key = TheEvent.keyval
-    Modifiers = TheEvent.state
+    Masks = Gdk.ModifierType
+    Modifiers = \
+        (
+            TheEvent.state
+        &
+            # ignore all except basic modifiers. I was getting MOD2_MASK set,
+            # which I think corresponds to num lock.
+            (
+                Masks.CONTROL_MASK
+            |
+                Masks.HYPER_MASK
+            |
+                Masks.META_MASK
+            |
+                Masks.SHIFT_MASK
+            |
+                Masks.SUPER_MASK
+            )
+        )
     if Modifiers == 0 :
         if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
             if FileIndex + 1 < len(Files) :
@@ -301,7 +319,7 @@ def KeyPressEvent(TheWindow, TheEvent) :
         elif Key in Act :
             LastUndo = Act[Key](Files[FileIndex])
         #end if
-    elif Modifiers == Gdk.ModifierType.CONTROL_MASK :
+    elif Modifiers == Masks.CONTROL_MASK :
         if Key == Gdk.KEY_z :
             if LastUndo != None :
                 Do = LastUndo
