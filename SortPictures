@@ -58,7 +58,8 @@
 #    F12 -- rotate picture clockwise
 #    CTRL/Z -- undo last move/movec/movesub action
 #
-# Created by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
 import sys
