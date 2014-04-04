@@ -224,7 +224,6 @@ def LoadImage() :
     if TheImage != None and ScaleFactor != None :
         TheImage = TheImage.scale_simple(int(TheImage.get_width() * ScaleFactor), int(TheImage.get_height() * ScaleFactor), ScaleHow)
     #end if
-    ImageLabel.set_text("%u/%u: %s" % (FileIndex + 1, len(Files), ImageName))
     ShowImage()
 #end LoadImage
 
@@ -259,16 +258,20 @@ def ShowImage() :
                 interp_type = GdkPixbuf.InterpType.BILINEAR
               )
         else :
+            ScaleFactor = 1
             UseImage = TheImage
         #end if
         ImageDisplay.set_from_pixbuf(UseImage)
+        ScaleDisplay = "%d%%" % round(ScaleFactor * 100)
     else :
         ImageDisplay.set_from_stock \
           (
             Gtk.STOCK_MISSING_IMAGE,
             Gtk.IconSize.LARGE_TOOLBAR
           )
+        ScaleDisplay = "?"
     #end if
+    ImageLabel.set_text("%u/%u: %s (%s)" % (FileIndex + 1, len(Files), Files[FileIndex], ScaleDisplay))
 #end ShowImage
 
 def KeyPressEvent(TheWindow, TheEvent) :
