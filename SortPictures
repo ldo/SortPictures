@@ -279,9 +279,15 @@ def ShowImage() :
 
 def PlayMovie() :
     # tries to play the file as a movie.
+    FileName = Files[FileIndex]
+    if FileName.endswith(".swf") :
+        cmd = ("gnash", "-1")
+    else :
+        cmd = ("ffplay", "-autoexit")
+    #end if
     subprocess.check_call \
       (
-        args = ("ffplay", "-autoexit", os.path.join(os.getcwd(), Files[FileIndex])),
+        args = cmd + (os.path.join(os.getcwd(), FileName),),
         stdin = open("/dev/null", "r"), # subprocess.DEVNULL,
       )
 #end PlayMovie
