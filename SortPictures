@@ -118,84 +118,84 @@ def for_each_file(arglist, action, actionarg) :
 # Keypress actions
 #-
 
-def MakeRunCmdAction(Fmt) :
-    """returns a function which substitutes its argument into Fmt and
+def make_run_cmd_action(fmt) :
+    """returns a function which substitutes its argument into fmt and
     executes the result as a shell command."""
 
-    def RunCmdAction(FileName) :
-        Cmd = Fmt % FileName
-        print(Cmd)
-        os.system(Cmd)
-    #end RunCmdAction
+    def run_cmd_action(filename) :
+        cmd = fmt % filename
+        print(cmd)
+        os.system(cmd)
+    #end run_cmd_action
 
-#begin MakeRunCmdAction
+#begin make_run_cmd_action
     return \
-        RunCmdAction
-#end MakeRunCmdAction
+        run_cmd_action
+#end make_run_cmd_action
 
-def MakeMoveAction(Dir, CreateIf) :
-    """returns a function which moves the file named by its argument into Dir."""
+def make_move_action(dir, create_if) :
+    """returns a function which moves the file named by its argument into dir."""
 
-    def MoveAction(FileName) :
-        nonlocal Exists
-        if not Exists :
-            os.mkdir(Dir)
-            print("dir “%s” created" % Dir)
-            Exists = True
+    def move_action(filename) :
+        nonlocal exists
+        if not exists :
+            os.mkdir(dir)
+            print("dir “%s” created" % dir)
+            exists = True
         #end if
-        DstName = os.path.join(Dir, os.path.basename(FileName))
-        print("move %s => %s" % (FileName, DstName))
-        os.rename(FileName, DstName)
-        def Undo() :
-            print("restore %s => %s" % (DstName, FileName))
-            os.rename(DstName, FileName)
-        #end Undo
+        dstname = os.path.join(dir, os.path.basename(filename))
+        print("move %s => %s" % (filename, dstname))
+        os.rename(filename, dstname)
+        def undo() :
+            print("restore %s => %s" % (dstname, filename))
+            os.rename(dstname, filename)
+        #end undo
         return \
-            Undo
-    #end MoveAction
+            undo
+    #end move_action
 
-#begin MakeMoveAction
-    Exists = os.path.isdir(Dir)
+#begin make_move_action
+    exists = os.path.isdir(dir)
     if (
-            not Exists
+            not exists
         and
-            (not CreateIf or os.path.lexists(Dir))
+            (not create_if or os.path.lexists(dir))
     ) :
-        raise RuntimeError("“%s” is not a directory" % Dir)
+        raise RuntimeError("“%s” is not a directory" % dir)
     #end if
     return \
-        MoveAction
-#end MakeMoveAction
+        move_action
+#end make_move_action
 
-def MakeMoveSubAction(Dir) :
+def make_move_sub_action(dir) :
     """returns a function which moves the file named by its argument into
-    the corresponding subdirectory of Dir."""
+    the corresponding subdirectory of dir."""
 
-    def MoveSubAction(FileName) :
-        Parent, Child = os.path.split(FileName)
-        Grandparent, Parent = os.path.split(Parent)
-        DestDir = os.path.join(Dir, Parent)
-        if not os.path.isdir(DestDir) :
-            if os.path.lexists(DestDir) :
-                raise RuntimeError("“%s” is not a directory" % DestDir)
+    def move_sub_action(filename) :
+        parent, child = os.path.split(filename)
+        grandparent, parent = os.path.split(parent)
+        destdir = os.path.join(dir, parent)
+        if not os.path.isdir(destdir) :
+            if os.path.lexists(destdir) :
+                raise RuntimeError("“%s” is not a directory" % destdir)
             #end if
-            os.mkdir(DestDir)
+            os.mkdir(destdir)
         #end if
-        DstName = os.path.join(DestDir, Child)
-        print("move %s => %s" % (FileName, DstName))
-        os.rename(FileName, DstName)
-        def Undo() :
-            print("restore %s => %s" % (DstName, FileName))
-            os.rename(DstName, FileName)
-        #end Undo
+        dstname = os.path.join(destdir, child)
+        print("move %s => %s" % (filename, dstname))
+        os.rename(filename, dstname)
+        def undo() :
+            print("restore %s => %s" % (dstname, filename))
+            os.rename(dstname, filename)
+        #end undo
         return \
-            Undo
-    #end MoveSubAction
+            undo
+    #end move_sub_action
 
-#begin MakeMoveSubAction
+#begin make_move_sub_action
     return \
-        MoveSubAction
-#end MakeMoveSubAction
+        move_sub_action
+#end make_move_sub_action
 
 #+
 # GUI callbacks
@@ -279,15 +279,15 @@ def ShowImage() :
 
 def PlayMovie() :
     # tries to play the file as a movie.
-    FileName = Files[FileIndex]
-    if FileName.endswith(".swf") :
+    filename = Files[FileIndex]
+    if filename.endswith(".swf") :
         cmd = ("gnash", "-1")
     else :
         cmd = ("ffplay", "-autoexit")
     #end if
     subprocess.check_call \
       (
-        args = cmd + (os.path.join(os.getcwd(), FileName),),
+        args = cmd + (os.path.join(os.getcwd(), filename),),
         stdin = open("/dev/null", "r"), # subprocess.DEVNULL,
       )
 #end PlayMovie
@@ -402,11 +402,11 @@ FileIndex = 0
 ScaleFactor = None
 for Keyword, Value in Opts :
     if Keyword == "--act" :
-        SetAct(Keyword, Value, MakeRunCmdAction)
+        SetAct(Keyword, Value, make_run_cmd_action)
     elif Keyword == "--move" or Keyword == "--movec" :
-        SetAct(Keyword, Value, lambda Arg : MakeMoveAction(Arg, Keyword == "--movec"))
+        SetAct(Keyword, Value, lambda Arg : make_move_action(Arg, Keyword == "--movec"))
     elif Keyword == "--movesub" :
-        SetAct(Keyword, Value, MakeMoveSubAction)
+        SetAct(Keyword, Value, make_move_sub_action)
     elif Keyword == "--random" :
         Sort = random.shuffle
     elif Keyword == "--scale" :
