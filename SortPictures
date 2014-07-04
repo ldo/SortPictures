@@ -202,82 +202,82 @@ def make_move_sub_action(dir) :
 #-
 
 # globals:
-# TheImage -- GDK pixbuf object containing image being displayed
-# ImageDisplay -- GTK image object for showing an image
-# ImageLabel -- GTK label object for showing image name
+# the_image -- GDK pixbuf object containing image being displayed
+# image_display -- GTK image object for showing an image
+# image_label -- GTK label object for showing image name
 #
 # actions -- mapping of actions to perform by keystroke
 # files -- list of image files to show
 # file_index -- index into files of image being shown
 
-def DestroyWindow(TheWindow) :
+def destroy_window(the_window) :
     # called when main window’s close box is clicked.
     Gtk.main_quit()
-#end DestroyWindow
+#end destroy_window
 
-def LoadImage() :
+def load_image() :
     # loads and shows the image from the currently selected file.
-    global TheImage
-    ImageName = files[file_index]
+    global the_image
+    imagename = files[file_index]
     try :
-        TheImage = GdkPixbuf.Pixbuf.new_from_file(ImageName)
+        the_image = GdkPixbuf.Pixbuf.new_from_file(imagename)
     except GObject.GError :
-        TheImage = None
+        the_image = None
     #end try
-    if TheImage != None and ScaleFactor != None :
-        TheImage = TheImage.scale_simple(int(TheImage.get_width() * ScaleFactor), int(TheImage.get_height() * ScaleFactor), ScaleHow)
+    if the_image != None and scale_factor != None :
+        the_image = the_image.scale_simple(int(the_image.get_width() * scale_factor), int(the_image.get_height() * scale_factor), scale_how)
     #end if
-    ShowImage()
-#end LoadImage
+    show_image()
+#end load_image
 
-def RotateImage(Clockwise) :
+def rotate_image(clockwise) :
     # rotates the displayed image by 90 degrees.
-    global TheImage
-    if Clockwise :
-        Direction = GdkPixbuf.PixbufRotation.CLOCKWISE
+    global the_image
+    if clockwise :
+        direction = GdkPixbuf.PixbufRotation.CLOCKWISE
     else :
-        Direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
+        direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
     #end if
-    if TheImage != None :
-        TheImage = TheImage.rotate_simple(Direction)
+    if the_image != None :
+        the_image = the_image.rotate_simple(direction)
     #end if
-#end RotateImage
+#end rotate_image
 
-def ShowImage() :
+def show_image() :
     # displays the currently-loaded image in the main window.
-    if TheImage != None :
-        ImageWidth = TheImage.get_property("width")
-        ImageHeight = TheImage.get_property("height")
-        if ImageWidth > MaxImageDisplay.x or ImageHeight > MaxImageDisplay.y :
-            ScaleFactor = min \
+    if the_image != None :
+        image_width = the_image.get_property("width")
+        image_height = the_image.get_property("height")
+        if image_width > MaxImageDisplay.x or image_height > MaxImageDisplay.y :
+            scale_factor = min \
               (
-                MaxImageDisplay.x * 1.0 / ImageWidth,
-                MaxImageDisplay.y * 1.0 / ImageHeight
+                MaxImageDisplay.x * 1.0 / image_width,
+                MaxImageDisplay.y * 1.0 / image_height
               )
-            UseImage = TheImage.scale_simple \
+            use_image = the_image.scale_simple \
               (
-                dest_width = int(round(ScaleFactor * ImageWidth)),
-                dest_height = int(round(ScaleFactor * ImageHeight)),
+                dest_width = int(round(scale_factor * image_width)),
+                dest_height = int(round(scale_factor * image_height)),
                 interp_type = GdkPixbuf.InterpType.BILINEAR
               )
         else :
-            ScaleFactor = 1
-            UseImage = TheImage
+            scale_factor = 1
+            use_image = the_image
         #end if
-        ImageDisplay.set_from_pixbuf(UseImage)
-        ScaleDisplay = "%d%%" % round(ScaleFactor * 100)
+        image_display.set_from_pixbuf(use_image)
+        scale_display = "%d%%" % round(scale_factor * 100)
     else :
-        ImageDisplay.set_from_stock \
+        image_display.set_from_stock \
           (
             Gtk.STOCK_MISSING_IMAGE,
             Gtk.IconSize.LARGE_TOOLBAR
           )
-        ScaleDisplay = "?"
+        scale_display = "?"
     #end if
-    ImageLabel.set_text("%u/%u: %s (%s)" % (file_index + 1, len(files), files[file_index], ScaleDisplay))
-#end ShowImage
+    image_label.set_text("%u/%u: %s (%s)" % (file_index + 1, len(files), files[file_index], scale_display))
+#end show_image
 
-def PlayMovie() :
+def play_movie() :
     # tries to play the file as a movie.
     filename = files[file_index]
     if filename.endswith(".swf") :
@@ -290,7 +290,7 @@ def PlayMovie() :
         args = cmd + (os.path.join(os.getcwd(), filename),),
         stdin = open("/dev/null", "r"), # subprocess.DEVNULL,
       )
-#end PlayMovie
+#end play_movie
 
 def KeyPressEvent(TheWindow, TheEvent) :
     # called in response to a keystroke when the main window has the focus.
@@ -321,23 +321,23 @@ def KeyPressEvent(TheWindow, TheEvent) :
         if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
             if file_index + 1 < len(files) :
                 file_index += 1
-                LoadImage()
+                load_image()
             #end if
         elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
             if file_index > 0 :
                 file_index -= 1
-                LoadImage()
+                load_image()
             #end if
         elif Key == Gdk.KEY_F1 :
             sys.stdout.write(files[file_index] + "\n")
         elif Key == Gdk.KEY_F11 :
-            RotateImage(False)
-            ShowImage()
+            rotate_image(False)
+            show_image()
         elif Key == Gdk.KEY_F12 :
-            RotateImage(True)
-            ShowImage()
+            rotate_image(True)
+            show_image()
         elif Key == Gdk.KEY_space :
-            PlayMovie()
+            play_movie()
         elif Key in actions :
             LastUndo = actions[Key](files[file_index])
         #end if
@@ -347,7 +347,7 @@ def KeyPressEvent(TheWindow, TheEvent) :
                 Do = LastUndo
                 LastUndo = None
                 Do()
-                LoadImage()
+                load_image()
             #end if
         #end if
     #end if
@@ -399,7 +399,7 @@ for_each_file(args, add_file, files)
 actions = {}
 do_sort = None
 file_index = 0
-ScaleFactor = None
+scale_factor = None
 for keyword, value in opts :
     if keyword == "--act" :
         set_act(keyword, value, make_run_cmd_action)
@@ -412,7 +412,7 @@ for keyword, value in opts :
     elif keyword == "--scale" :
         value = value.split(",", 1)
         if len(value) == 2 :
-            ScaleHow = \
+            scale_how = \
                 {
                     "nearest" : GdkPixbuf.InterpType.NEAREST,
                     "tiles" : GdkPixbuf.InterpType.TILES,
@@ -420,13 +420,13 @@ for keyword, value in opts :
                     "hyper" : GdkPixbuf.InterpType.HYPER,
                 }[value[1]]
         else :
-            ScaleHow = GdkPixbuf.InterpType.TILES # default
+            scale_how = GdkPixbuf.InterpType.TILES # default
         #end if
         value = value[0]
         if value.endswith("%") :
-            ScaleFactor = float(value[:-1]) / 100
+            scale_factor = float(value[:-1]) / 100
         else :
-            ScaleFactor = float(value)
+            scale_factor = float(value)
         #end if
     elif keyword == "--sort" :
         if value == "random" :
@@ -456,24 +456,24 @@ if do_sort != None :
     do_sort(files)
 #end if
 
-TheImage = None # to begin with
-# DefaultScreen = Gdk.display_get_default().get_default_screen()
+the_image = None # to begin with
+# default_screen = Gdk.display_get_default().get_default_screen()
 class MaxImageDisplay :
     """maximum bounds of image display"""
     x = Gdk.Screen.width() - 32
     y = Gdk.Screen.height() - 96
 #end MaxImageDisplay
-MainWindow = Gtk.Window()
-MainWindow.connect("destroy", DestroyWindow)
-MainWindow.connect("key_press_event", KeyPressEvent)
-MainWindow.set_border_width(10)
-MainVBox = Gtk.VBox(False, 8)
-ImageDisplay = Gtk.Image()
-MainVBox.pack_start(ImageDisplay, False, False, 0)
-ImageLabel = Gtk.Label()
-MainVBox.pack_start(ImageLabel, False, False, 0)
-MainWindow.add(MainVBox)
-MainWindow.show_all()
-MainWindow.show()
-LoadImage()
+main_window = Gtk.Window()
+main_window.connect("destroy", destroy_window)
+main_window.connect("key_press_event", KeyPressEvent)
+main_window.set_border_width(10)
+main_vbox = Gtk.VBox(False, 8)
+image_display = Gtk.Image()
+main_vbox.pack_start(image_display, False, False, 0)
+image_label = Gtk.Label()
+main_vbox.pack_start(image_label, False, False, 0)
+main_window.add(main_vbox)
+main_window.show_all()
+main_window.show()
+load_image()
 Gtk.main()
