@@ -59,7 +59,7 @@
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
 #
-# Copyright 2006 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006-2014 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
@@ -78,41 +78,41 @@ from gi.repository import \
 # Useful stuff
 #-
 
-def ForEachFile(ArgList, Action, ActionArg) :
-    """invokes Action(FileName, ActionArg) for each non-directory item
-    found in ArgList. If an item is not a directory, passes it directly
+def for_each_file(arglist, action, actionarg) :
+    """invokes action(FileName, actionarg) for each non-directory item
+    found in arglist. If an item is not a directory, passes it directly
     to action; otherwise, passes each file directly contained within it,
     unless the name ends with "...", in which case all file descendants
     of the directory are passed."""
 
-    def ForEach(Item, Recurse) :
-        if os.path.isdir(Item) :
-            for Child in os.listdir(Item) :
-                Child = os.path.join(Item, Child)
-                if os.path.isdir(Child) :
-                    if Recurse :
-                        ForEach(Child, True)
+    def for_each(item, recurse) :
+        if os.path.isdir(item) :
+            for child in os.listdir(item) :
+                child = os.path.join(item, child)
+                if os.path.isdir(child) :
+                    if recurse :
+                        for_each(child, True)
                     #end if
                 else :
-                    Action(Child, ActionArg)
+                    action(child, actionarg)
                 #end if
             #end for
         else :
-            Action(Item, ActionArg)
+            action(item, actionarg)
         #end if
-    #end ForEach
+    #end for_each
 
-#begin ForEachFile
-    for Arg in ArgList :
-        if Arg.endswith("...") :
-            Recurse = True
-            Arg = Arg[0 : -3]
+#begin for_each_file
+    for arg in arglist :
+        if arg.endswith("...") :
+            recurse = True
+            arg = arg[0 : -3]
         else :
-            Recurse = False
+            recurse = False
         #end if
-        ForEach(Arg, Recurse)
+        for_each(arg, recurse)
     #end for
-#end ForEachFile
+#end for_each_file
 
 #+
 # Keypress actions
@@ -367,7 +367,7 @@ def SetAct(Keyword, Value, MakeAction) :
 #end SetAct
 
 def AddFile(Item, Files) :
-    # ForEachFile action to collect names of all image files.
+    # for_each_file action to collect names of all image files.
     Files.append(Item)
 #end AddFile
 
@@ -394,7 +394,7 @@ def Order(Files) :
   )
 
 Files = []
-ForEachFile(Args, AddFile, Files)
+for_each_file(Args, AddFile, Files)
 
 Act = {}
 Sort = None
