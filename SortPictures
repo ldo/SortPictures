@@ -292,67 +292,67 @@ def play_movie() :
       )
 #end play_movie
 
-def KeyPressEvent(TheWindow, TheEvent) :
+def key_press_event(the_window, the_event) :
     # called in response to a keystroke when the main window has the focus.
-    global files, file_index, LastUndo
-    # print("Keypress type %d val %d mods %#x" % (TheEvent.type, TheEvent.keyval, TheEvent.state)) # debug
-    # print("Event %s" % repr({k : getattr(TheEvent, k) for k in dir(TheEvent) if not k.startswith("_")})) # debug
-    Key = TheEvent.keyval
-    Masks = Gdk.ModifierType
-    Modifiers = \
+    global files, file_index, last_undo
+    # print("Keypress type %d val %d mods %#x" % (the_event.type, the_event.keyval, the_event.state)) # debug
+    # print("Event %s" % repr({k : getattr(the_event, k) for k in dir(the_event) if not k.startswith("_")})) # debug
+    key = the_event.keyval
+    masks = Gdk.ModifierType
+    modifiers = \
         (
-            TheEvent.state
+            the_event.state
         &
             # ignore all except basic modifiers. I was getting MOD2_MASK set,
             # which I think corresponds to num lock.
             (
-                Masks.CONTROL_MASK
+                masks.CONTROL_MASK
             |
-                Masks.HYPER_MASK
+                masks.HYPER_MASK
             |
-                Masks.META_MASK
+                masks.META_MASK
             |
-                Masks.SHIFT_MASK
+                masks.SHIFT_MASK
             |
-                Masks.SUPER_MASK
+                masks.SUPER_MASK
             )
         )
-    if Modifiers == 0 :
-        if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
+    if modifiers == 0 :
+        if key == Gdk.KEY_Down or key == Gdk.KEY_Right :
             if file_index + 1 < len(files) :
                 file_index += 1
                 load_image()
             #end if
-        elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
+        elif key == Gdk.KEY_Up or key == Gdk.KEY_Left :
             if file_index > 0 :
                 file_index -= 1
                 load_image()
             #end if
-        elif Key == Gdk.KEY_F1 :
+        elif key == Gdk.KEY_F1 :
             sys.stdout.write(files[file_index] + "\n")
-        elif Key == Gdk.KEY_F11 :
+        elif key == Gdk.KEY_F11 :
             rotate_image(False)
             show_image()
-        elif Key == Gdk.KEY_F12 :
+        elif key == Gdk.KEY_F12 :
             rotate_image(True)
             show_image()
-        elif Key == Gdk.KEY_space :
+        elif key == Gdk.KEY_space :
             play_movie()
-        elif Key in actions :
-            LastUndo = actions[Key](files[file_index])
+        elif key in actions :
+            last_undo = actions[key](files[file_index])
         #end if
-    elif Modifiers == Masks.CONTROL_MASK :
-        if Key == Gdk.KEY_z :
-            if LastUndo != None :
-                Do = LastUndo
-                LastUndo = None
-                Do()
+    elif modifiers == masks.CONTROL_MASK :
+        if key == Gdk.KEY_z :
+            if last_undo != None :
+                do = last_undo
+                last_undo = None
+                do()
                 load_image()
             #end if
         #end if
     #end if
     return True
-#end KeyPressEvent
+#end key_press_event
 
 #+
 # Mainline
@@ -435,7 +435,7 @@ for keyword, value in opts :
             sort_key = mod_date_key
             do_sort = order
         elif value == "name" :
-            sort_key = lambda Name : os.path.split(Name)[1]
+            sort_key = lambda name : os.path.split(name)[1]
             do_sort = order
         elif value == "none" :
             do_sort = None
@@ -465,7 +465,7 @@ class MaxImageDisplay :
 #end MaxImageDisplay
 main_window = Gtk.Window()
 main_window.connect("destroy", destroy_window)
-main_window.connect("key_press_event", KeyPressEvent)
+main_window.connect("key_press_event", key_press_event)
 main_window.set_border_width(10)
 main_vbox = Gtk.VBox(False, 8)
 image_display = Gtk.Image()
