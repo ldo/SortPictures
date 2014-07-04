@@ -79,7 +79,7 @@ from gi.repository import \
 #-
 
 def for_each_file(arglist, action, actionarg) :
-    """invokes action(FileName, actionarg) for each non-directory item
+    """invokes action(filename, actionarg) for each non-directory item
     found in arglist. If an item is not a directory, passes it directly
     to action; otherwise, passes each file directly contained within it,
     unless the name ends with "...", in which case all file descendants
@@ -206,9 +206,9 @@ def make_move_sub_action(dir) :
 # ImageDisplay -- GTK image object for showing an image
 # ImageLabel -- GTK label object for showing image name
 #
-# Act -- mapping of actions to perform by keystroke
-# Files -- list of image files to show
-# FileIndex -- index into Files of image being shown
+# actions -- mapping of actions to perform by keystroke
+# files -- list of image files to show
+# file_index -- index into files of image being shown
 
 def DestroyWindow(TheWindow) :
     # called when main window’s close box is clicked.
@@ -218,7 +218,7 @@ def DestroyWindow(TheWindow) :
 def LoadImage() :
     # loads and shows the image from the currently selected file.
     global TheImage
-    ImageName = Files[FileIndex]
+    ImageName = files[file_index]
     try :
         TheImage = GdkPixbuf.Pixbuf.new_from_file(ImageName)
     except GObject.GError :
@@ -274,12 +274,12 @@ def ShowImage() :
           )
         ScaleDisplay = "?"
     #end if
-    ImageLabel.set_text("%u/%u: %s (%s)" % (FileIndex + 1, len(Files), Files[FileIndex], ScaleDisplay))
+    ImageLabel.set_text("%u/%u: %s (%s)" % (file_index + 1, len(files), files[file_index], ScaleDisplay))
 #end ShowImage
 
 def PlayMovie() :
     # tries to play the file as a movie.
-    filename = Files[FileIndex]
+    filename = files[file_index]
     if filename.endswith(".swf") :
         cmd = ("gnash", "-1")
     else :
@@ -294,7 +294,7 @@ def PlayMovie() :
 
 def KeyPressEvent(TheWindow, TheEvent) :
     # called in response to a keystroke when the main window has the focus.
-    global Files, FileIndex, LastUndo
+    global files, file_index, LastUndo
     # print("Keypress type %d val %d mods %#x" % (TheEvent.type, TheEvent.keyval, TheEvent.state)) # debug
     # print("Event %s" % repr({k : getattr(TheEvent, k) for k in dir(TheEvent) if not k.startswith("_")})) # debug
     Key = TheEvent.keyval
@@ -319,17 +319,17 @@ def KeyPressEvent(TheWindow, TheEvent) :
         )
     if Modifiers == 0 :
         if Key == Gdk.KEY_Down or Key == Gdk.KEY_Right :
-            if FileIndex + 1 < len(Files) :
-                FileIndex += 1
+            if file_index + 1 < len(files) :
+                file_index += 1
                 LoadImage()
             #end if
         elif Key == Gdk.KEY_Up or Key == Gdk.KEY_Left :
-            if FileIndex > 0 :
-                FileIndex -= 1
+            if file_index > 0 :
+                file_index -= 1
                 LoadImage()
             #end if
         elif Key == Gdk.KEY_F1 :
-            sys.stdout.write(Files[FileIndex] + "\n")
+            sys.stdout.write(files[file_index] + "\n")
         elif Key == Gdk.KEY_F11 :
             RotateImage(False)
             ShowImage()
@@ -338,8 +338,8 @@ def KeyPressEvent(TheWindow, TheEvent) :
             ShowImage()
         elif Key == Gdk.KEY_space :
             PlayMovie()
-        elif Key in Act :
-            LastUndo = Act[Key](Files[FileIndex])
+        elif Key in actions :
+            LastUndo = actions[Key](files[file_index])
         #end if
     elif Modifiers == Masks.CONTROL_MASK :
         if Key == Gdk.KEY_z :
@@ -358,102 +358,102 @@ def KeyPressEvent(TheWindow, TheEvent) :
 # Mainline
 #-
 
-def SetAct(Keyword, Value, MakeAction) :
-    if len(Value) > 2 and Value[1] == ":" :
-        Act[ord(Value[0])] = MakeAction(Value[2:])
+def set_act(keyword, value, make_action) :
+    if len(value) > 2 and value[1] == ":" :
+        actions[ord(value[0])] = make_action(value[2:])
     else :
-        raise getopt.error("Invalid %s syntax: %s" % (Keyword, repr(Value)))
+        raise getopt.error("Invalid %s syntax: %s" % (keyword, repr(value)))
     #end if
-#end SetAct
+#end set_act
 
-def AddFile(Item, Files) :
+def add_file(item, files) :
     # for_each_file action to collect names of all image files.
-    Files.append(Item)
-#end AddFile
+    files.append(item)
+#end add_file
 
-ModDate = {} # cache of mod dates to avoid repeated lookups
-def ModDateKey(File) :
+mod_date = {} # cache of mod dates to avoid repeated lookups
+def mod_date_key(filename) :
     """sort key callback which orders files by their last-mod date."""
-    if not File in ModDate :
-        ModDate[File] = os.stat(File).st_mtime
+    if not filename in mod_date :
+        mod_date[filename] = os.stat(filename).st_mtime
     #end if
     return \
-        ModDate[File]
-#end ModDateKey
+        mod_date[filename]
+#end mod_date_key
 
-def Order(Files) :
-    # sorts Files according to the key mapping defined by SortKey.
-    Files.sort(key = SortKey)
-#end Order
+def order(files) :
+    # sorts files according to the key mapping defined by sort_key.
+    files.sort(key = sort_key)
+#end order
 
-(Opts, Args) = getopt.getopt \
+(opts, args) = getopt.getopt \
   (
     sys.argv[1:],
     "",
     ["act=", "move=", "movec=", "movesub=", "random", "scale=", "sort=", "start="]
   )
 
-Files = []
-for_each_file(Args, AddFile, Files)
+files = []
+for_each_file(args, add_file, files)
 
-Act = {}
-Sort = None
-FileIndex = 0
+actions = {}
+do_sort = None
+file_index = 0
 ScaleFactor = None
-for Keyword, Value in Opts :
-    if Keyword == "--act" :
-        SetAct(Keyword, Value, make_run_cmd_action)
-    elif Keyword == "--move" or Keyword == "--movec" :
-        SetAct(Keyword, Value, lambda Arg : make_move_action(Arg, Keyword == "--movec"))
-    elif Keyword == "--movesub" :
-        SetAct(Keyword, Value, make_move_sub_action)
-    elif Keyword == "--random" :
-        Sort = random.shuffle
-    elif Keyword == "--scale" :
-        Value = Value.split(",", 1)
-        if len(Value) == 2 :
+for keyword, value in opts :
+    if keyword == "--act" :
+        set_act(keyword, value, make_run_cmd_action)
+    elif keyword == "--move" or keyword == "--movec" :
+        set_act(keyword, value, lambda Arg : make_move_action(Arg, keyword == "--movec"))
+    elif keyword == "--movesub" :
+        set_act(keyword, value, make_move_sub_action)
+    elif keyword == "--random" :
+        do_sort = random.shuffle
+    elif keyword == "--scale" :
+        value = value.split(",", 1)
+        if len(value) == 2 :
             ScaleHow = \
                 {
                     "nearest" : GdkPixbuf.InterpType.NEAREST,
                     "tiles" : GdkPixbuf.InterpType.TILES,
                     "bilinear" : GdkPixbuf.InterpType.BILINEAR,
                     "hyper" : GdkPixbuf.InterpType.HYPER,
-                }[Value[1]]
+                }[value[1]]
         else :
             ScaleHow = GdkPixbuf.InterpType.TILES # default
         #end if
-        Value = Value[0]
-        if Value.endswith("%") :
-            ScaleFactor = float(Value[:-1]) / 100
+        value = value[0]
+        if value.endswith("%") :
+            ScaleFactor = float(value[:-1]) / 100
         else :
-            ScaleFactor = float(Value)
+            ScaleFactor = float(value)
         #end if
-    elif Keyword == "--sort" :
-        if Value == "random" :
-            Sort = random.shuffle
-        elif Value == "mod" :
-            SortKey = ModDateKey
-            Sort = Order
-        elif Value == "name" :
-            SortKey = lambda Name : os.path.split(Name)[1]
-            Sort = Order
-        elif Value == "none" :
-            Sort = None
+    elif keyword == "--sort" :
+        if value == "random" :
+            do_sort = random.shuffle
+        elif value == "mod" :
+            sort_key = mod_date_key
+            do_sort = order
+        elif value == "name" :
+            sort_key = lambda Name : os.path.split(Name)[1]
+            do_sort = order
+        elif value == "none" :
+            do_sort = None
         else :
-            raise getopt.error("Invalid sort option %s" % Value)
+            raise getopt.error("Invalid sort option %s" % value)
         #end if
-    elif Keyword == "--start" :
-        FileIndex = int(Value) - 1
+    elif keyword == "--start" :
+        file_index = int(value) - 1
     #end if
 #end for
-if len(Files) == 0 :
+if len(files) == 0 :
     raise getopt.error("Nothing to do")
 #end if
-if FileIndex < 0 or FileIndex >= len(Files) :
+if file_index < 0 or file_index >= len(files) :
     raise getopt.error("--start index out of range")
 #end if
-if Sort != None :
-    Sort(Files)
+if do_sort != None :
+    do_sort(files)
 #end if
 
 TheImage = None # to begin with
