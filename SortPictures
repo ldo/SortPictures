@@ -49,6 +49,8 @@
 #    --start=n
 #         start the display at picture n in the sequence, instead
 #         of picture 1.
+#    --trash
+#         enable the use of the DEL key to move the file into the Trash folder.
 #
 # Standard keystrokes are:
 #    right or down arrow -- go to next picture
@@ -116,6 +118,9 @@ def for_each_file(arglist, action, actionarg) :
 
 #+
 # Keypress actions
+#
+# The routine that actually performs the action on the file can
+# return another routine which will undo the action.
 #-
 
 def make_run_cmd_action(fmt) :
@@ -196,6 +201,27 @@ def make_move_sub_action(dir) :
     return \
         move_sub_action
 #end make_move_sub_action
+
+def move_trash_action(filename) :
+    """moves the filename to the trash."""
+    homedir = os.path.abspath(os.getenv("HOME", "/")) + "/"
+    fullpath = os.path.abspath(filename)
+    trashdir = os.path.join(homedir, "Trash")
+    if fullpath.startswith(homedir) :
+        trashpath = trashdir + "/" + fullpath[len(homedir):]
+    else :
+        trashpath = trashdir + fullpath
+    #end if
+    print("trash %s => %s" % (fullpath, trashpath))
+    os.makedirs(os.path.split(trashpath)[0], exist_ok = True)
+    os.rename(fullpath, trashpath)
+    def undo() :
+        print("restore %s => %s" % (trashpath, fullpath))
+        os.rename(trashpath, fullpath)
+    #end undo
+    return \
+        undo
+#end move_trash_action
 
 #+
 # GUI callbacks
@@ -336,6 +362,10 @@ def key_press_event(the_window, the_event) :
         elif key == Gdk.KEY_F12 :
             rotate_image(True)
             show_image()
+        elif key == Gdk.KEY_Delete :
+            if enable_trash :
+                last_undo = move_trash_action(files[file_index])
+            #end if
         elif key == Gdk.KEY_space :
             play_movie()
         elif key in actions :
@@ -390,7 +420,7 @@ def order(files) :
   (
     sys.argv[1:],
     "",
-    ["act=", "move=", "movec=", "movesub=", "random", "scale=", "sort=", "start="]
+    ["act=", "move=", "movec=", "movesub=", "random", "scale=", "sort=", "start=", "trash"]
   )
 
 files = []
@@ -398,6 +428,7 @@ for_each_file(args, add_file, files)
 
 actions = {}
 do_sort = None
+enable_trash = False
 file_index = 0
 scale_factor = None
 for keyword, value in opts :
@@ -444,6 +475,8 @@ for keyword, value in opts :
         #end if
     elif keyword == "--start" :
         file_index = int(value) - 1
+    elif keyword == "--trash" :
+        enable_trash = True
     #end if
 #end for
 if len(files) == 0 :
