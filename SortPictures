@@ -16,6 +16,15 @@
 #         specified multiple times with different k values, to define multiple
 #         key bindings. When cmd is invoked, occurrences of %s are substituted
 #         with the full name of the image file.
+#    --copy=k:dir
+#         defines a key binding, where k is a single ASCII character
+#         which, when typed by the user, will copy the current file into the
+#         directory dir, which must already exist.
+#    --copyc=k:dir
+#         defines a key binding, where k is a single ASCII character
+#         which, when typed by the user, will copy the current file into the
+#         directory dir. The directory will be created when the first file is moved
+#         into it if it doesn’t already exist.
 #    --move=k:dir
 #         defines a key binding, where k is a single ASCII character
 #         which, when typed by the user, will move the current file into the
@@ -70,6 +79,7 @@ import os
 import random
 import subprocess
 import getopt
+import shutil
 from gi.repository import \
     GObject, \
     Gdk, \
@@ -138,16 +148,20 @@ def make_run_cmd_action(fmt) :
         run_cmd_action
 #end make_run_cmd_action
 
-def make_move_action(dir, create_if) :
+def make_move_copy_action(dir, do_copy, create_if) :
     """returns a function which moves the file named by its argument into dir."""
 
-    def move_action(filename) :
+    def check_exists() :
         nonlocal exists
         if not exists :
             os.mkdir(dir)
             print("dir “%s” created" % dir)
             exists = True
         #end if
+    #end check_exists
+
+    def move_action(filename) :
+        check_exists()
         dstname = os.path.join(dir, os.path.basename(filename))
         print("move %s => %s" % (filename, dstname))
         os.rename(filename, dstname)
@@ -159,7 +173,22 @@ def make_move_action(dir, create_if) :
             undo
     #end move_action
 
-#begin make_move_action
+    def copy_action(filename) :
+        check_exists()
+        dstname = os.path.join(dir, os.path.basename(filename))
+        print("copy %s => %s" % (filename, dstname))
+        shutil.copy(filename, dstname)
+        stat = os.stat(filename)
+        os.utime(dstname, (stat.st_atime, stat.st_mtime))
+        def undo() :
+            print("uncopy %s" % dstname)
+            os.unlink(dstname)
+        #end undo
+        return \
+            undo
+    #end copy_action
+
+#begin make_move_copy_action
     exists = os.path.isdir(dir)
     if (
             not exists
@@ -169,8 +198,8 @@ def make_move_action(dir, create_if) :
         raise RuntimeError("“%s” is not a directory" % dir)
     #end if
     return \
-        move_action
-#end make_move_action
+        (move_action, copy_action)[do_copy]
+#end make_move_copy_action
 
 def make_move_sub_action(dir) :
     """returns a function which moves the file named by its argument into
@@ -420,7 +449,8 @@ def order(files) :
   (
     sys.argv[1:],
     "",
-    ["act=", "move=", "movec=", "movesub=", "random", "scale=", "sort=", "start=", "trash"]
+    ["act=", "copy=", "copyc=", "move=", "movec=", "movesub=",
+        "random", "scale=", "sort=", "start=", "trash"]
   )
 
 files = []
@@ -434,8 +464,10 @@ scale_factor = None
 for keyword, value in opts :
     if keyword == "--act" :
         set_act(keyword, value, make_run_cmd_action)
+    elif keyword == "--copy" or keyword == "--copyc" :
+        set_act(keyword, value, lambda Arg : make_move_copy_action(Arg, True, keyword == "--copyc"))
     elif keyword == "--move" or keyword == "--movec" :
-        set_act(keyword, value, lambda Arg : make_move_action(Arg, keyword == "--movec"))
+        set_act(keyword, value, lambda Arg : make_move_copy_action(Arg, False, keyword == "--movec"))
     elif keyword == "--movesub" :
         set_act(keyword, value, make_move_sub_action)
     elif keyword == "--random" :
