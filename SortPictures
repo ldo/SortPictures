@@ -264,6 +264,7 @@ def move_trash_action(filename) :
 # actions -- mapping of actions to perform by keystroke
 # files -- list of image files to show
 # file_index -- index into files of image being shown
+# file_rotations -- current rotations to apply to files
 
 def destroy_window(the_window) :
     # called when main window’s close box is clicked.
@@ -282,6 +283,10 @@ def load_image() :
     if the_image != None and scale_factor != None :
         the_image = the_image.scale_simple(int(the_image.get_width() * scale_factor), int(the_image.get_height() * scale_factor), scale_how)
     #end if
+    rotation = file_rotations.get(file_index, GdkPixbuf.PixbufRotation.NONE)
+    if rotation != GdkPixbuf.PixbufRotation.NONE :
+        the_image = the_image.rotate_simple(rotation)
+    #end if
     show_image()
 #end load_image
 
@@ -294,6 +299,7 @@ def rotate_image(clockwise) :
         direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
     #end if
     if the_image != None :
+        file_rotations[file_index] = GdkPixbuf.PixbufRotation((file_rotations.get(file_index, GdkPixbuf.PixbufRotation.NONE) + direction) % 360)
         the_image = the_image.rotate_simple(direction)
     #end if
 #end rotate_image
@@ -520,6 +526,7 @@ if file_index < 0 or file_index >= len(files) :
 if do_sort != None :
     do_sort(files)
 #end if
+file_rotations = {}
 
 the_image = None # to begin with
 # default_screen = Gdk.display_get_default().get_default_screen()
