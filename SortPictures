@@ -426,7 +426,7 @@ def key_press_event(the_window, the_event) :
 
 def set_act(keyword, value, make_action) :
     if len(value) > 2 and value[1] == ":" :
-        actions[ord(value[0])] = make_action(value[2:])
+        actions[ord(value[0])] = make_action(os.path.expanduser(value[2:]))
     else :
         raise getopt.error("Invalid %s syntax: %s" % (keyword, repr(value)))
     #end if
