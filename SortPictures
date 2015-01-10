@@ -428,7 +428,7 @@ def set_act(keyword, value, make_action) :
     if len(value) > 2 and value[1] == ":" :
         actions[ord(value[0])] = make_action(os.path.expanduser(value[2:]))
     else :
-        raise getopt.error("Invalid %s syntax: %s" % (keyword, repr(value)))
+        raise getopt.GetoptError("Invalid %s syntax: %s" % (keyword, repr(value)))
     #end if
 #end set_act
 
@@ -510,7 +510,7 @@ for keyword, value in opts :
         elif value == "none" :
             do_sort = None
         else :
-            raise getopt.error("Invalid sort option %s" % value)
+            raise getopt.GetoptError("Invalid sort option %s" % value)
         #end if
     elif keyword == "--start" :
         if value == "random" :
@@ -523,10 +523,10 @@ for keyword, value in opts :
     #end if
 #end for
 if len(files) == 0 :
-    raise getopt.error("Nothing to do")
+    raise getopt.GetoptError("Nothing to do")
 #end if
 if file_index < 0 or file_index >= len(files) :
-    raise getopt.error("--start index out of range")
+    raise getopt.GetoptError("--start index out of range")
 #end if
 if do_sort != None :
     do_sort(files)
