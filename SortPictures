@@ -72,7 +72,7 @@
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
 #
-# Copyright 2006-2014 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006-2015 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
@@ -345,6 +345,8 @@ def play_movie() :
     filename = files[file_index]
     if filename.endswith(".swf") :
         cmd = ("gnash", "-1")
+    elif filename.endswith(".pdf") :
+        cmd = ("okular",)
     else :
         cmd = ("ffplay", "-autoexit")
     #end if
