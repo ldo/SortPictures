@@ -82,6 +82,9 @@ import random
 import subprocess
 import getopt
 import shutil
+import gi
+gi.require_version("Gdk", "3.0")
+gi.require_version("Gtk", "3.0")
 from gi.repository import \
     GObject, \
     Gdk, \
