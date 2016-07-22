@@ -410,6 +410,8 @@ def key_press_event(the_window, the_event) :
             #end if
         elif key == Gdk.KEY_space :
             play_movie()
+        elif key == Gdk.KEY_Escape :
+            Gtk.main_quit()
         elif key in actions :
             last_undo = actions[key](files[file_index])
         #end if
