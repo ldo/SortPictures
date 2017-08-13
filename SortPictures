@@ -54,6 +54,8 @@
 #             none (default) -- no special sorting
 #             mod -- sort by last-mod date
 #             name -- sort by name
+#             numeric -- sort by name, but interpreting sequences of decimal
+#                 digits numerically
 #             random -- display in random order
 #             reversed -- can be combined with mod or name to reverse sort order
 #    --start=n
@@ -78,6 +80,7 @@
 
 import sys
 import os
+import re
 import random
 import subprocess
 import getopt
@@ -445,19 +448,49 @@ def add_file(item, files) :
     files.append(item)
 #end add_file
 
-mod_date = {} # cache of mod dates to avoid repeated lookups
-def mod_date_key(filename) :
-    """sort key callback which orders files by their last-mod date."""
-    if not filename in mod_date :
-        mod_date[filename] = os.stat(filename).st_mtime
-    #end if
+def numeric_name_key(filename) :
+    "sort key callback which orders filenames interpreting sequences of" \
+    " decimal digits numerically."
+    key = []
+    while True :
+        if len(filename) == 0 :
+            break
+        split = re.search("\d+", filename)
+        if split == None :
+            key.append(filename)
+            break
+        #end if
+        if split.start() != 0 :
+            key.append(filename[:split.start()])
+        #end if
+        key.append(int(filename[split.start() : split.end()]))
+        filename = filename[split.end():]
+    #end while
     return \
-        mod_date[filename]
+        tuple(key)
+#end numeric_name_key
+
+def mod_date_key(filename) :
+    "sort key callback which orders files by their last-mod date."
+    return \
+        os.stat(filename).st_mtime
 #end mod_date_key
 
 def order(files) :
     # sorts files according to the key mapping defined by sort_key.
-    files.sort(key = sort_key, reverse = reversed_sort)
+
+    cache = {} # avoid repeated key computations
+
+    def get_key(filename) :
+        if filename not in cache :
+            cache[filename] = sort_key(filename)
+        #end if
+        return \
+            cache[filename]
+    #end get_key
+
+#begin
+    files.sort(key = get_key, reverse = reversed_sort)
 #end order
 
 (opts, args) = getopt.getopt \
@@ -516,6 +549,9 @@ for keyword, value in opts :
                 do_sort = order
             elif item == "name" :
                 sort_key = lambda name : os.path.split(name)[1]
+                do_sort = order
+            elif item == "numeric" :
+                sort_key = numeric_name_key
                 do_sort = order
             elif item == "none" :
                 do_sort = None
