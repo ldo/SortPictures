@@ -219,18 +219,6 @@ def get_file_hash(filename) :
         hash.digest()
 #end get_file_hash
 
-def sql_string(s) :
-    "returns an sqlite string literal that evalutes to s."
-    # not used.
-    if s != None :
-        q = "'" + str(s).replace("'", "''") + "'"
-    else :
-        q = "null"
-    #end if
-    return \
-        q
-#end sql_string
-
 #+
 # Keypress actions
 #
