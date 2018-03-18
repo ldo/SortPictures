@@ -49,6 +49,12 @@
 #         how is the scaling method: “nearest”, “tiles”, “bilinear” or “hyper”
 #         (see https://developer.gnome.org/gdk-pixbuf/stable/gdk-pixbuf-Scaling.html#gdk-pixbuf-scale-simple
 #         for the details). If omitted, the default is “tiles”.
+#    --seen=seendb
+#         specifies the name of an SQLite database file in which to record
+#         details about images already seen. As each image is viewed, it is
+#         added to the database. Images already in the database are skipped.
+#         NOTE that this can slow down startup a lot if viewing lots of
+#         images.
 #    --sort=how
 #         displays the images in order according to how:
 #             none (default) -- no special sorting
@@ -74,17 +80,21 @@
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
 #
-# Copyright 2006-2015 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006-2018 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
 import sys
 import os
+from enum import \
+    IntEnum
 import re
 import random
+import hashlib
 import subprocess
 import getopt
 import shutil
+import apsw as sqlite
 import gi
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
@@ -133,6 +143,93 @@ def for_each_file(arglist, action, actionarg) :
         for_each(arg, recurse)
     #end for
 #end for_each_file
+
+#+
+# Useful database stuff
+#-
+
+class DB_OPEN(IntEnum) :
+    "database opening modes."
+    READONLY = 0 # existing database, only for reading
+    READWRITE = 1 # existing database, for reading and writing
+    READWRITECREATE = 2 # create database if it doesn’t exist, open for reading and writing
+#end DB_OPEN
+
+def open_db_common(dbname, mode, test_table, test_field, create_tables) :
+    "common routine for opening the specified database file and returning a new" \
+    " connection. mode is DB_OPEN value, test_table is a table and test_field a field to" \
+    " test the existence of within that table, and create_tables is a list of table-creation" \
+    " command strings to execute if that table doesn't exist."
+    result = \
+        sqlite.Connection \
+          (
+            dbname,
+            flags =
+                    (sqlite.SQLITE_OPEN_READONLY, sqlite.SQLITE_OPEN_READWRITE)[mode >= DB_OPEN.READWRITE]
+                |
+                    (0, sqlite.SQLITE_OPEN_CREATE)[mode == DB_OPEN.READWRITECREATE]
+          )
+    cu = result.cursor()
+    try :
+        cu.execute("select count(*) from %s where %s is not null" % (test_table, test_field))
+        inited = True
+    except sqlite.SQLError :
+        if mode < DB_OPEN.READWRITECREATE :
+            raise
+        #end if
+        # assume it’s a newly-created database, need to set up the tables
+        inited = False
+    #end try
+    if not inited :
+        sys.stderr.write("Initializing new database\n") # debug
+        for create_table in create_tables :
+            cu.execute(create_table)
+        #end for
+    #end if
+    cu.close()
+    return \
+        result
+#end open_db_common
+
+def open_seen_db(dbname, mode) :
+    "opens the specified images-seen database file and returns a new connection."
+    return \
+        open_db_common \
+          (
+            dbname = dbname,
+            mode = mode,
+            test_table = "seen",
+            test_field = "sha256",
+            create_tables =
+                [
+                    "create table seen\n"
+                    "  (\n"
+                    "    filename varchar not null,\n"
+                    "    sha256 blob primary key not null\n"
+                    "  )\n",
+                ]
+          )
+#end open_seen_db
+
+def get_file_hash(filename) :
+    "computes a SHA-256 hash of the specified file’s contents."
+    hash = hashlib.sha256()
+    hash.update(open(filename, "rb").read())
+    return \
+        hash.digest()
+#end get_file_hash
+
+def sql_string(s) :
+    "returns an sqlite string literal that evalutes to s."
+    # not used.
+    if s != None :
+        q = "'" + str(s).replace("'", "''") + "'"
+    else :
+        q = "null"
+    #end if
+    return \
+        q
+#end sql_string
 
 #+
 # Keypress actions
@@ -274,8 +371,15 @@ def move_trash_action(filename) :
 # file_index -- index into files of image being shown
 # file_rotations -- current rotations to apply to files
 
+seen_db = None
+
 def destroy_window(the_window) :
     # called when main window’s close box is clicked.
+    global seen_db
+    if seen_db != None :
+        seen_db.close()
+        seen_db = None
+    #end if
     Gtk.main_quit()
 #end destroy_window
 
@@ -288,6 +392,19 @@ def load_image() :
     except GObject.GError :
         the_image = None
     #end try
+    if the_image != None and seen_db != None :
+        cu = seen_db.cursor()
+        cu.execute \
+          (
+                "insert or replace into seen (filename, sha256) values (%(filename)s, %(sha256)s)"
+            %
+                {
+                    "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
+                    "sha256" : sqlite.format_sql_value(get_file_hash(imagename)),
+                }
+          )
+        cu.close()
+    #end if
     if the_image != None and scale_factor != None :
         the_image = the_image.scale_simple(int(the_image.get_width() * scale_factor), int(the_image.get_height() * scale_factor), scale_how)
     #end if
@@ -414,7 +531,7 @@ def key_press_event(the_window, the_event) :
         elif key == Gdk.KEY_space :
             play_movie()
         elif key == Gdk.KEY_Escape :
-            Gtk.main_quit()
+            destroy_window(main_window)
         elif key in actions :
             last_undo = actions[key](files[file_index])
         #end if
@@ -445,7 +562,23 @@ def set_act(keyword, value, make_action) :
 
 def add_file(item, files) :
     # for_each_file action to collect names of all image files.
-    files.append(item)
+    addit = True # to begin with
+    if seen_db != None :
+        cu = seen_db.cursor()
+        cu.execute \
+          (
+                "select filename from seen where sha256 = %s"
+            %
+                sqlite.format_sql_value(get_file_hash(item))
+          )
+        exists = cu.fetchone()
+        if exists != None :
+            addit = False
+        #end if
+    #end if
+    if addit :
+        files.append(item)
+    #end if
 #end add_file
 
 def numeric_name_key(filename) :
@@ -493,16 +626,13 @@ def order(files) :
     files.sort(key = get_key, reverse = reversed_sort)
 #end order
 
-(opts, args) = getopt.getopt \
+opts, args = getopt.getopt \
   (
     sys.argv[1:],
     "",
     ["act=", "copy=", "copyc=", "move=", "movec=", "movesub=",
-        "random", "scale=", "sort=", "start=", "trash"]
+        "random", "scale=", "seen=", "sort=", "start=", "trash"]
   )
-
-files = []
-for_each_file(args, add_file, files)
 
 actions = {}
 do_sort = None
@@ -540,6 +670,11 @@ for keyword, value in opts :
         else :
             scale_factor = float(value)
         #end if
+    elif keyword == "--seen" :
+        if seen_db != None :
+            raise getopt.GetoptError("can specify --seen only once")
+        #end if
+        seen_db = open_seen_db(value, DB_OPEN.READWRITECREATE)
     elif keyword == "--sort" :
         for item in value.split(":") :
             if item == "random" :
@@ -563,7 +698,7 @@ for keyword, value in opts :
         #end for
     elif keyword == "--start" :
         if value == "random" :
-            file_index = random.randrange(len(files))
+            file_index = "random"
         else :
             file_index = int(value) - 1
         #end if
@@ -571,10 +706,16 @@ for keyword, value in opts :
         enable_trash = True
     #end if
 #end for
+
+files = []
+for_each_file(args, add_file, files)
+
 if len(files) == 0 :
     raise getopt.GetoptError("Nothing to do")
 #end if
-if file_index < 0 or file_index >= len(files) :
+if file_index == "random" :
+    file_index = random.randrange(len(files))
+elif file_index < 0 or file_index >= len(files) :
     raise getopt.GetoptError("--start index out of range")
 #end if
 if do_sort != None :
