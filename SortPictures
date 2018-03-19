@@ -53,8 +53,6 @@
 #         specifies the name of an SQLite database file in which to record
 #         details about images already seen. As each image is viewed, it is
 #         added to the database. Images already in the database are skipped.
-#         NOTE that this can slow down startup a lot if viewing lots of
-#         images.
 #    --sort=how
 #         displays the images in order according to how:
 #             none (default) -- no special sorting
@@ -205,8 +203,12 @@ def open_seen_db(dbname, mode) :
                     "create table seen\n"
                     "  (\n"
                     "    filename varchar not null,\n"
-                    "    sha256 blob primary key not null\n"
+                    "    sha256 blob primary key not null,\n"
+                    "    length integer unsigned not null,\n"
+                    "    mod_date integer unsigned not null\n"
                     "  )\n",
+                    "create index file_length on seen(length)\n",
+                    "create index file_mod_date on seen(mod_date)\n",
                 ]
           )
 #end open_seen_db
@@ -382,13 +384,17 @@ def load_image() :
     #end try
     if the_image != None and seen_db != None :
         cu = seen_db.cursor()
+        stat = os.stat(imagename)
         cu.execute \
           (
-                "insert or replace into seen (filename, sha256) values (%(filename)s, %(sha256)s)"
+                "insert or replace into seen (filename, sha256, length, mod_date)"
+                " values (%(filename)s, %(sha256)s, %(length)d, %(mod_date)d)"
             %
                 {
                     "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
                     "sha256" : sqlite.format_sql_value(get_file_hash(imagename)),
+                    "length" : stat.st_size,
+                    "mod_date" : stat.st_mtime_ns,
                 }
           )
         cu.close()
@@ -552,17 +558,30 @@ def add_file(item, files) :
     # for_each_file action to collect names of all image files.
     addit = True # to begin with
     if seen_db != None :
+        # Use same heuristic as rsync does to speed up matches: look up file
+        # size and mod date/time to narrow down the candidates before
+        # actually bothering to compute the hash of file contents.
         cu = seen_db.cursor()
+        stat = os.stat(item)
         cu.execute \
           (
-                "select filename from seen where sha256 = %s"
+                "select sha256 from seen where length = %d and mod_date = %d"
             %
-                sqlite.format_sql_value(get_file_hash(item))
+                (stat.st_size, stat.st_mtime_ns)
           )
-        exists = cu.fetchone()
-        if exists != None :
-            addit = False
-        #end if
+        hash = None # don’t compute hash until needed
+        while True :
+            exists = cu.fetchone()
+            if exists == None :
+                break
+            if hash == None :
+                hash = get_file_hash(item)
+            #end if
+            if hash == exists[0] :
+                addit = False
+                break
+            #end if
+        #end while
     #end if
     if addit :
         files.append(item)
