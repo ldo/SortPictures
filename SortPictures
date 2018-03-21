@@ -53,6 +53,8 @@
 #         specifies the name of an SQLite database file in which to record
 #         details about images already seen. As each image is viewed, it is
 #         added to the database. Images already in the database are skipped.
+#         NOTE: Using this feature can get slow as the number of records
+#         in the database grows beyond, say, a few hundred.
 #    --sort=how
 #         displays the images in order according to how:
 #             none (default) -- no special sorting
