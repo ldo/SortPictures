@@ -205,10 +205,11 @@ def open_seen_db(dbname, mode) :
                     "create table seen\n"
                     "  (\n"
                     "    filename varchar not null,\n"
-                    "    sha256 blob primary key not null,\n"
+                    "    sha256 blob,\n"
                     "    length integer unsigned not null,\n"
                     "    mod_date integer unsigned not null\n"
                     "  )\n",
+                    "create index hash on seen(sha256)\n",
                     "create index file_length on seen(length)\n",
                     "create index file_mod_date on seen(mod_date)\n",
                 ]
@@ -389,7 +390,7 @@ def load_image() :
         stat = os.stat(imagename)
         cu.execute \
           (
-                "insert or replace into seen (filename, sha256, length, mod_date)"
+                "insert into seen (filename, sha256, length, mod_date)"
                 " values (%(filename)s, %(sha256)s, %(length)d, %(mod_date)d)"
             %
                 {
