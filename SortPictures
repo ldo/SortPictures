@@ -68,6 +68,15 @@
 #         start the display at picture n in the sequence, instead
 #         of picture 1. Instead of an integer, you can specify the
 #         word “random” to pick a random starting point.
+#    --tosee=toseedb
+#         specifies the name of an SQLite database file in which to record
+#         details about images not already seen. If specified instead of any
+#         file/directory names, then this database should already have been
+#         preloaded with the names of files to see; if any file/directory names
+#         were specified as well, then their names will be loaded into this
+#         database and marked initially unseen. As images are shown, their
+#         entries in this database will be marked as seen, so they won’t be
+#         shown again.
 #    --trash
 #         enable the use of the DEL key to move the file into the Trash folder.
 #
@@ -144,6 +153,15 @@ def for_each_file(arglist, action, actionarg) :
     #end for
 #end for_each_file
 
+def strip_prefix(s, prefix) :
+    "strips prefix from beginning of s if present."
+    if s.startswith(prefix) :
+        s = s[len(prefix):]
+    #end if
+    return \
+        s
+#end strip_prefix
+
 #+
 # Useful database stuff
 #-
@@ -154,6 +172,23 @@ class DB_OPEN(IntEnum) :
     READWRITE = 1 # existing database, for reading and writing
     READWRITECREATE = 2 # create database if it doesn’t exist, open for reading and writing
 #end DB_OPEN
+
+class TOSEE(IntEnum) :
+    "flag masks for tosee.flags."
+    SEEN = 1
+#end TOSEE
+
+first_tuple_field = lambda x : x[0]
+  # mapfn for db_iter that extracts first or only field from each tuple
+
+def db_iter(conn, cmd, mapfn = lambda x : x) :
+    "executes cmd on a new cursor from connection conn and yields the results in turn."
+    cu = conn.cursor()
+    result = cu.execute(cmd)
+    while True :
+        yield mapfn(next(result))
+    #end while
+#end db_iter
 
 def open_db_common(dbname, mode, test_table, test_field, create_tables) :
     "common routine for opening the specified database file and returning a new" \
@@ -215,6 +250,43 @@ def open_seen_db(dbname, mode) :
                 ]
           )
 #end open_seen_db
+
+def open_tosee_db(dbname, mode) :
+    return \
+        open_db_common \
+          (
+            dbname = dbname,
+            mode = mode,
+            test_table = "tosee",
+            test_field = "filename",
+            create_tables =
+                [
+                    "create table tosee\n"
+                    "  (\n"
+                    "    filename varchar not null,\n"
+                    "    flags unsigned integer not null default 0,\n"
+                    "    primary key (filename)\n"
+                    "  )\n",
+                    "create index filename on tosee(filename)\n",
+                    "create table globals\n"
+                    "  (\n"
+                    "    name varchar not null,\n"
+                    "    value blob,\n"
+                    "    primary key (name)\n"
+                    "  )\n",
+                    "insert into globals(name, value) values ('basepath', '')",
+                ]
+          )
+#end open_tosee_db
+
+def db_one_record(conn, cmd, mapfn = lambda x : x) :
+    "does a query which is assumed to return a single record, and returns it."
+    rows = db_iter(conn, cmd, mapfn)
+    result = next(rows)
+    assert next(rows, None) == None, "query returned more than one record"
+    return \
+        result
+#end db_one_record
 
 def get_file_hash(filename) :
     "computes a SHA-256 hash of the specified file’s contents."
@@ -365,13 +437,19 @@ def move_trash_action(filename) :
 # file_rotations -- current rotations to apply to files
 
 seen_db = None
+tosee_db = None
+tosee_base_path = None
 
 def destroy_window(the_window) :
     # called when main window’s close box is clicked.
-    global seen_db
+    global seen_db, tosee_db
     if seen_db != None :
         seen_db.close()
         seen_db = None
+    #end if
+    if tosee_db != None :
+        tosee_db.close()
+        tosee_db = None
     #end if
     Gtk.main_quit()
 #end destroy_window
@@ -385,22 +463,37 @@ def load_image() :
     except GObject.GError :
         the_image = None
     #end try
-    if the_image != None and seen_db != None :
-        cu = seen_db.cursor()
-        stat = os.stat(imagename)
-        cu.execute \
-          (
-                "insert into seen (filename, sha256, length, mod_date)"
-                " values (%(filename)s, %(sha256)s, %(length)d, %(mod_date)d)"
-            %
-                {
-                    "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
-                    "sha256" : sqlite.format_sql_value(get_file_hash(imagename)),
-                    "length" : stat.st_size,
-                    "mod_date" : stat.st_mtime_ns,
-                }
-          )
-        cu.close()
+    if the_image != None :
+        if seen_db != None :
+            cu = seen_db.cursor()
+            stat = os.stat(imagename)
+            cu.execute \
+              (
+                    "insert into seen (filename, sha256, length, mod_date)"
+                    " values (%(filename)s, %(sha256)s, %(length)d, %(mod_date)d)"
+                %
+                    {
+                        "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
+                        "sha256" : sqlite.format_sql_value(get_file_hash(imagename)),
+                        "length" : stat.st_size,
+                        "mod_date" : stat.st_mtime_ns,
+                    }
+              )
+            cu.close()
+        #end if
+        if tosee_db != None :
+            cu = tosee_db.cursor()
+            cu.execute \
+              (
+                    "update tosee set flags = flags | %(seen)d where filename = %(path)s"
+                %
+                    {
+                        "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
+                        "seen" : TOSEE.SEEN,
+                    }
+              )
+            cu.close()
+        #end if
     #end if
     if the_image != None and scale_factor != None :
         the_image = the_image.scale_simple(int(the_image.get_width() * scale_factor), int(the_image.get_height() * scale_factor), scale_how)
@@ -641,7 +734,7 @@ opts, args = getopt.getopt \
     sys.argv[1:],
     "",
     ["act=", "copy=", "copyc=", "move=", "movec=", "movesub=",
-        "random", "scale=", "seen=", "sort=", "start=", "trash"]
+        "random", "scale=", "seen=", "sort=", "start=", "tosee=", "trash"]
   )
 
 actions = {}
@@ -712,6 +805,17 @@ for keyword, value in opts :
         else :
             file_index = int(value) - 1
         #end if
+    elif keyword == "--tosee" :
+        if tosee_db != None :
+            raise getopt.GetoptError("can specify --tosee only once")
+        #end if
+        tosee_db = open_tosee_db(value, DB_OPEN.READWRITECREATE)
+        tosee_base_path = db_one_record \
+          (
+            conn = tosee_db,
+            cmd = "select value from globals where name = 'basepath'",
+            mapfn = first_tuple_field
+          )
     elif keyword == "--trash" :
         enable_trash = True
     #end if
@@ -719,6 +823,33 @@ for keyword, value in opts :
 
 files = []
 for_each_file(args, add_file, files)
+if tosee_db != None :
+    if len(files) != 0 :
+        cu = tosee_db.cursor()
+        cu.execute("begin transaction")
+        for f in files :
+            cu.execute \
+              (
+                    "insert or replace into tosee(filename, flags) values(%s, 0)"
+                %
+                    sqlite.format_sql_value(strip_prefix(strip_prefix(f, "./"), tosee_base_path))
+              )
+        #end for
+        cu.execute("end transaction")
+        cu.close()
+    #end if
+    files = list \
+      (
+        os.path.join(tosee_base_path, f)
+        for f in
+            db_iter
+              (
+                conn = tosee_db,
+                cmd = "select filename from tosee where flags & %d = 0" % TOSEE.SEEN,
+                mapfn = first_tuple_field
+              )
+      )
+#end if
 
 if len(files) == 0 :
     raise getopt.GetoptError("Nothing to do")
