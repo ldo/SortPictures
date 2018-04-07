@@ -95,6 +95,7 @@
 
 import sys
 import os
+import stat
 from enum import \
     IntEnum
 import re
@@ -455,24 +456,54 @@ def destroy_window(the_window) :
     Gtk.main_quit()
 #end destroy_window
 
-def update_tosee(setit) :
-    if tosee_db != None and setit != None :
-        cu = tosee_db.cursor()
-        cu.execute \
-          (
-                "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d where filename = %(path)s"
-            %
-                {
-                    "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
-                    "clear_seen" : ~ (TOSEE.SEEN, 0)[setit],
-                    "set_seen" : (0, TOSEE.SEEN)[setit],
-                }
-          )
-        cu.close()
+def update_seen(setit) :
+    if setit != None :
+        if seen_db != None :
+            cu = seen_db.cursor()
+            if setit :
+                info = os.stat(imagename)
+                cu.execute \
+                  (
+                        "insert into seen (filename, sha256, length, mod_date)"
+                        " values (%(filename)s, %(sha256)s, %(length)d, %(mod_date)d)"
+                    %
+                        {
+                            "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
+                            "sha256" : sqlite.format_sql_value(get_file_hash(imagename)),
+                            "length" : info.st_size,
+                            "mod_date" : info.st_mtime_ns,
+                        }
+                  )
+            else :
+                cu.execute \
+                  (
+                        "delete from seen where filename = %(filename)s"
+                    %
+                        {
+                            "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
+                        }
+                  )
+            #end if
+            cu.close()
+        #end if
+        if tosee_db != None :
+            cu = tosee_db.cursor()
+            cu.execute \
+              (
+                    "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d where filename = %(path)s"
+                %
+                    {
+                        "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
+                        "clear_seen" : ~ (TOSEE.SEEN, 0)[setit],
+                        "set_seen" : (0, TOSEE.SEEN)[setit],
+                    }
+              )
+            cu.close()
+        #end if
     #end if
-#end update_tosee
+#end update_seen
 
-def load_image(set_tosee) :
+def load_image(set_seen) :
     # loads and shows the image from the currently selected file.
     global the_image, imagename
     imagename = files[file_index]
@@ -482,25 +513,8 @@ def load_image(set_tosee) :
         the_image = None
     #end try
     if the_image != None :
-        if seen_db != None :
-            cu = seen_db.cursor()
-            stat = os.stat(imagename)
-            cu.execute \
-              (
-                    "insert into seen (filename, sha256, length, mod_date)"
-                    " values (%(filename)s, %(sha256)s, %(length)d, %(mod_date)d)"
-                %
-                    {
-                        "filename" : sqlite.format_sql_value(os.path.basename(imagename)),
-                        "sha256" : sqlite.format_sql_value(get_file_hash(imagename)),
-                        "length" : stat.st_size,
-                        "mod_date" : stat.st_mtime_ns,
-                    }
-              )
-            cu.close()
-        #end if
-        if set_tosee != None :
-            update_tosee(set_tosee)
+        if set_seen != None :
+            update_seen(set_seen)
         #end if
     #end if
     if the_image != None and scale_factor != None :
@@ -609,9 +623,9 @@ def key_press_event(the_window, the_event) :
                 file_index += 1
                 load_image(None)
             #end if
-            update_tosee(True)
+            update_seen(True)
         elif key == Gdk.KEY_Up or key == Gdk.KEY_Left :
-            update_tosee(False)
+            update_seen(False)
             if file_index > 0 :
                 file_index -= 1
                 load_image(None)
@@ -669,25 +683,29 @@ def add_file(item, files) :
         # actually bothering to compute the hash of file contents.
         cu = seen_db.cursor()
         info = os.lstat(item)
-        cu.execute \
-          (
-                "select sha256 from seen where length = %d and mod_date = %d"
-            %
-                (info.st_size, info.st_mtime_ns)
-          )
-        hash = None # don’t compute hash until needed
-        while True :
-            exists = cu.fetchone()
-            if exists == None :
-                break
-            if hash == None :
-                hash = get_file_hash(item)
-            #end if
-            if hash == exists[0] :
-                addit = False
-                break
-            #end if
-        #end while
+        if stat.S_ISLNK(info.st_mode) :
+            addit = False # don't follow symlinks
+        else :
+            cu.execute \
+              (
+                    "select sha256 from seen where length = %d and mod_date = %d"
+                %
+                    (info.st_size, info.st_mtime_ns)
+              )
+            hash = None # don’t compute hash until needed
+            while True :
+                exists = cu.fetchone()
+                if exists == None :
+                    break
+                if hash == None :
+                    hash = get_file_hash(item)
+                #end if
+                if hash == exists[0] :
+                    addit = False
+                    break
+                #end if
+            #end while
+        #end if
     #end if
     if addit :
         files.append(item)
