@@ -348,8 +348,8 @@ def make_move_copy_action(dir, do_copy, create_if) :
         dstname = os.path.join(dir, os.path.basename(filename))
         print("copy %s => %s" % (filename, dstname))
         shutil.copy(filename, dstname)
-        stat = os.stat(filename)
-        os.utime(dstname, (stat.st_atime, stat.st_mtime))
+        info = os.stat(filename)
+        os.utime(dstname, (info.st_atime, info.st_mtime))
         def undo() :
             print("uncopy %s" % dstname)
             os.unlink(dstname)
@@ -668,12 +668,12 @@ def add_file(item, files) :
         # size and mod date/time to narrow down the candidates before
         # actually bothering to compute the hash of file contents.
         cu = seen_db.cursor()
-        stat = os.stat(item)
+        info = os.lstat(item)
         cu.execute \
           (
                 "select sha256 from seen where length = %d and mod_date = %d"
             %
-                (stat.st_size, stat.st_mtime_ns)
+                (info.st_size, info.st_mtime_ns)
           )
         hash = None # don’t compute hash until needed
         while True :
