@@ -619,11 +619,11 @@ def key_press_event(the_window, the_event) :
         )
     if modifiers == 0 :
         if key == Gdk.KEY_Down or key == Gdk.KEY_Right :
+            update_seen(True) # in case went to it via left-arrow
             if file_index + 1 < len(files) :
                 file_index += 1
-                load_image(None)
+                load_image(True)
             #end if
-            update_seen(True)
         elif key == Gdk.KEY_Up or key == Gdk.KEY_Left :
             update_seen(False)
             if file_index > 0 :
