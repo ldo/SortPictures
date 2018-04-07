@@ -464,7 +464,7 @@ def update_tosee(setit) :
             %
                 {
                     "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
-                    "clear_seen" : (~TOSEE.SEEN, 0)[setit],
+                    "clear_seen" : ~ (TOSEE.SEEN, 0)[setit],
                     "set_seen" : (0, TOSEE.SEEN)[setit],
                 }
           )
