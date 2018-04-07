@@ -858,7 +858,7 @@ if tosee_db != None :
         for f in files :
             cu.execute \
               (
-                    "insert or replace into tosee(filename, flags) values(%s, 0)"
+                    "insert or ignore into tosee(filename, flags) values(%s, 0)"
                 %
                     sqlite.format_sql_value(strip_prefix(strip_prefix(f, "./"), tosee_base_path))
               )
