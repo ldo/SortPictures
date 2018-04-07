@@ -428,6 +428,7 @@ def move_trash_action(filename) :
 
 # globals:
 # the_image -- GDK pixbuf object containing image being displayed
+# imagename -- filename for image being displayed
 # image_display -- GTK image object for showing an image
 # image_label -- GTK label object for showing image name
 #
@@ -454,9 +455,26 @@ def destroy_window(the_window) :
     Gtk.main_quit()
 #end destroy_window
 
-def load_image() :
+def update_tosee(setit) :
+    if tosee_db != None and setit != None :
+        cu = tosee_db.cursor()
+        cu.execute \
+          (
+                "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d where filename = %(path)s"
+            %
+                {
+                    "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
+                    "clear_seen" : (~TOSEE.SEEN, 0)[setit],
+                    "set_seen" : (0, TOSEE.SEEN)[setit],
+                }
+          )
+        cu.close()
+    #end if
+#end update_tosee
+
+def load_image(set_tosee) :
     # loads and shows the image from the currently selected file.
-    global the_image
+    global the_image, imagename
     imagename = files[file_index]
     try :
         the_image = GdkPixbuf.Pixbuf.new_from_file(imagename)
@@ -481,18 +499,8 @@ def load_image() :
               )
             cu.close()
         #end if
-        if tosee_db != None :
-            cu = tosee_db.cursor()
-            cu.execute \
-              (
-                    "update tosee set flags = flags | %(seen)d where filename = %(path)s"
-                %
-                    {
-                        "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
-                        "seen" : TOSEE.SEEN,
-                    }
-              )
-            cu.close()
+        if set_tosee != None :
+            update_tosee(set_tosee)
         #end if
     #end if
     if the_image != None and scale_factor != None :
@@ -599,12 +607,14 @@ def key_press_event(the_window, the_event) :
         if key == Gdk.KEY_Down or key == Gdk.KEY_Right :
             if file_index + 1 < len(files) :
                 file_index += 1
-                load_image()
+                load_image(None)
             #end if
+            update_tosee(True)
         elif key == Gdk.KEY_Up or key == Gdk.KEY_Left :
+            update_tosee(False)
             if file_index > 0 :
                 file_index -= 1
-                load_image()
+                load_image(None)
             #end if
         elif key == Gdk.KEY_F1 :
             sys.stdout.write(files[file_index] + "\n")
@@ -631,7 +641,7 @@ def key_press_event(the_window, the_event) :
                 do = last_undo
                 last_undo = None
                 do()
-                load_image()
+                load_image(None)
             #end if
         #end if
     #end if
@@ -883,5 +893,5 @@ main_vbox.pack_start(image_label, False, False, 0)
 main_window.add(main_vbox)
 main_window.show_all()
 main_window.show()
-load_image()
+load_image(True)
 Gtk.main()
