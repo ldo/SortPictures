@@ -566,9 +566,9 @@ def show_image() :
         image_display.set_from_pixbuf(use_image)
         scale_display = "%d%%" % round(scale_factor * 100)
     else :
-        image_display.set_from_stock \
+        image_display.set_from_icon_name \
           (
-            Gtk.STOCK_MISSING_IMAGE,
+            "missing-image",
             Gtk.IconSize.LARGE_TOOLBAR
           )
         scale_display = "?"
