@@ -89,7 +89,7 @@
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
 #
-# Copyright 2006-2018 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006-2019 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
@@ -110,6 +110,7 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
 from gi.repository import \
     GObject, \
+    GLib, \
     Gdk, \
     GdkPixbuf, \
     Gtk
@@ -509,7 +510,7 @@ def load_image(set_seen) :
     imagename = files[file_index]
     try :
         the_image = GdkPixbuf.Pixbuf.new_from_file(imagename)
-    except GObject.GError :
+    except GLib.GError :
         the_image = None
     #end try
     if the_image != None :
