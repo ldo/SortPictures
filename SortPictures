@@ -438,10 +438,12 @@ def move_trash_action(filename) :
 # files -- list of image files to show
 # file_index -- index into files of image being shown
 # file_rotations -- current rotations to apply to files
+# last_undo -- function to invoke to undo last action (if any)
 
 seen_db = None
 tosee_db = None
 tosee_base_path = None
+last_undo = None
 
 def destroy_window(the_window) :
     # called when main window’s close box is clicked.
