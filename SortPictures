@@ -185,10 +185,8 @@ first_tuple_field = lambda x : x[0]
 
 def db_iter(conn, cmd, mapfn = lambda x : x) :
     "executes cmd on a new cursor from connection conn and yields the results in turn."
-    cu = conn.cursor()
-    result = cu.execute(cmd)
-    while True :
-        yield mapfn(next(result))
+    for item in conn.cursor().execute(cmd) :
+        yield mapfn(item)
     #end while
 #end db_iter
 
