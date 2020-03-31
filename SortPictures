@@ -103,6 +103,7 @@ import random
 import hashlib
 import subprocess
 import getopt
+import shlex
 import shutil
 import apsw as sqlite
 import gi
@@ -632,7 +633,7 @@ def key_press_event(the_window, the_event) :
                 load_image(None)
             #end if
         elif key == Gdk.KEY_F1 :
-            sys.stdout.write(files[file_index] + "\n")
+            sys.stdout.write(shlex.quote(files[file_index]) + "\n")
         elif key == Gdk.KEY_F11 :
             rotate_image(False)
             show_image()
