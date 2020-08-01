@@ -737,8 +737,13 @@ def numeric_name_key(filename) :
 
 def mod_date_key(filename) :
     "sort key callback which orders files by their last-mod date."
+    try :
+        mtime = os.stat(filename).st_mtime
+    except OSError :
+        mtime = 0
+    #end try
     return \
-        os.stat(filename).st_mtime
+        mtime
 #end mod_date_key
 
 def order(files) :
