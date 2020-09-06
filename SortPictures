@@ -127,7 +127,7 @@ def for_each_file(arglist, action, actionarg) :
     of the directory are passed."""
 
     def for_each(item, recurse) :
-        if os.path.isdir(item) :
+        if stat.S_ISDIR(os.lstat(item).st_mode) :
             for child in os.listdir(item) :
                 child = os.path.join(item, child)
                 if os.path.isdir(child) :
