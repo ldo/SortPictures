@@ -441,11 +441,14 @@ def move_trash_action(filename) :
 seen_db = None
 tosee_db = None
 tosee_base_path = None
+in_seen_transaction = False
+in_tosee_transaction = False
 last_undo = None
 
 def destroy_window(the_window) :
     # called when main window’s close box is clicked.
     global seen_db, tosee_db
+    flush_updates(None)
     if seen_db != None :
         seen_db.close()
         seen_db = None
@@ -458,9 +461,15 @@ def destroy_window(the_window) :
 #end destroy_window
 
 def update_seen(setit) :
+    global in_seen_transaction, in_tosee_transaction
     if setit != None :
         if seen_db != None :
             cu = seen_db.cursor()
+            if not in_seen_transaction :
+                cu.execute("begin transaction")
+                in_seen_transaction = True
+                queue_flush_updates()
+            #end if
             if setit :
                 info = os.stat(imagename)
                 cu.execute \
@@ -489,6 +498,11 @@ def update_seen(setit) :
         #end if
         if tosee_db != None :
             cu = tosee_db.cursor()
+            if not in_tosee_transaction :
+                cu.execute("begin transaction")
+                in_tosee_transaction = True
+                queue_flush_updates()
+            #end if
             cu.execute \
               (
                     "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d where filename = %(path)s"
@@ -503,6 +517,23 @@ def update_seen(setit) :
         #end if
     #end if
 #end update_seen
+
+def queue_flush_updates() :
+    GLib.timeout_add(5 * 1000, flush_updates, None)
+#end queue_flush_updates
+
+def flush_updates(_) :
+    global in_seen_transaction, in_tosee_transaction
+    if in_seen_transaction :
+        seen_db.cursor().execute("end transaction")
+        in_seen_transaction = False
+    #end if
+    if in_tosee_transaction :
+        tosee_db.cursor().execute("end transaction")
+        in_tosee_transaction = False
+    #end if
+    return False
+#end flush_updates
 
 def load_image(set_seen) :
     # loads and shows the image from the currently selected file.
