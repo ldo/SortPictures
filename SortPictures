@@ -443,6 +443,7 @@ tosee_db = None
 tosee_base_path = None
 in_seen_transaction = False
 in_tosee_transaction = False
+db_flush_queued = False
 last_undo = None
 
 def destroy_window(the_window) :
@@ -519,11 +520,16 @@ def update_seen(setit) :
 #end update_seen
 
 def queue_flush_updates() :
-    GLib.timeout_add(5 * 1000, flush_updates, None)
+    global db_flush_queued
+    if not db_flush_queued :
+        db_flush_queued = True
+        GLib.timeout_add(5 * 1000, flush_updates, None)
+    #end if
 #end queue_flush_updates
 
 def flush_updates(_) :
-    global in_seen_transaction, in_tosee_transaction
+    global in_seen_transaction, in_tosee_transaction, db_flush_queued
+    db_flush_queued = False
     if in_seen_transaction :
         seen_db.cursor().execute("end transaction")
         in_seen_transaction = False
