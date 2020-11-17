@@ -566,7 +566,7 @@ def load_image(set_seen) :
             scale_how
           )
     #end if
-    rotation = file_rotations.get(file_index, GdkPixbuf.PixbufRotation.NONE)
+    rotation = file_rotations.get(imagename, GdkPixbuf.PixbufRotation.NONE)
     if rotation != GdkPixbuf.PixbufRotation.NONE :
         the_image = the_image.rotate_simple(rotation)
     #end if
@@ -582,7 +582,7 @@ def rotate_image(clockwise) :
         direction = GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE
     #end if
     if the_image != None :
-        file_rotations[file_index] = GdkPixbuf.PixbufRotation((file_rotations.get(file_index, GdkPixbuf.PixbufRotation.NONE) + direction) % 360)
+        file_rotations[imagename] = GdkPixbuf.PixbufRotation((file_rotations.get(imagename, GdkPixbuf.PixbufRotation.NONE) + direction) % 360)
         the_image = the_image.rotate_simple(direction)
     #end if
 #end rotate_image
