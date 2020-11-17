@@ -97,6 +97,7 @@ import sys
 import os
 import stat
 from enum import \
+    Enum, \
     IntEnum
 import re
 import random
@@ -178,6 +179,7 @@ class DB_OPEN(IntEnum) :
 class TOSEE(IntEnum) :
     "flag masks for tosee.flags."
     SEEN = 1
+    SAVE_FOR_LAST = 16
 #end TOSEE
 
 first_tuple_field = lambda x : x[0]
@@ -438,39 +440,51 @@ def move_trash_action(filename) :
 # file_rotations -- current rotations to apply to files
 # last_undo -- function to invoke to undo last action (if any)
 
-seen_db = None
-tosee_db = None
+class WHICH_DB(Enum) :
+    SEEN = 0
+    TOSEE = 1
+#end WHICH_DB
+
+database = dict((db, None) for db in WHICH_DB)
+in_transaction = dict((db, False) for db in WHICH_DB)
+
 tosee_base_path = None
-in_seen_transaction = False
-in_tosee_transaction = False
 db_flush_queued = False
 last_undo = None
 
 def destroy_window(the_window) :
     # called when main window’s close box is clicked.
-    global seen_db, tosee_db
     flush_updates(None)
-    if seen_db != None :
-        seen_db.close()
-        seen_db = None
-    #end if
-    if tosee_db != None :
-        tosee_db.close()
-        tosee_db = None
+    for db in WHICH_DB :
+        if database[db] != None :
+            database[db].close()
+            database[db] = None
+        #end if
     #end if
     Gtk.main_quit()
 #end destroy_window
 
+def new_update_cursor(which_db : WHICH_DB) :
+    "creates a new cursor for the specified database, if it is open. Also" \
+    " queues a time-delayed transaction commit to flush pending updates."
+    if database[which_db] != None :
+        cu = database[which_db].cursor()
+        if not in_transaction[which_db] :
+            cu.execute("begin transaction")
+            in_transaction[which_db] = True
+            queue_flush_updates()
+        #end if
+    else :
+        cu = None
+    #end if
+    return \
+        cu
+#end new_update_cursor
+
 def update_seen(setit) :
-    global in_seen_transaction, in_tosee_transaction
     if setit != None :
-        if seen_db != None :
-            cu = seen_db.cursor()
-            if not in_seen_transaction :
-                cu.execute("begin transaction")
-                in_seen_transaction = True
-                queue_flush_updates()
-            #end if
+        cu = new_update_cursor(WHICH_DB.SEEN)
+        if cu != None :
             if setit :
                 info = os.stat(imagename)
                 cu.execute \
@@ -497,13 +511,8 @@ def update_seen(setit) :
             #end if
             cu.close()
         #end if
-        if tosee_db != None :
-            cu = tosee_db.cursor()
-            if not in_tosee_transaction :
-                cu.execute("begin transaction")
-                in_tosee_transaction = True
-                queue_flush_updates()
-            #end if
+        cu = new_update_cursor(WHICH_DB.TOSEE)
+        if cu != None :
             cu.execute \
               (
                     "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d"
@@ -533,17 +542,15 @@ def queue_flush_updates() :
 #end queue_flush_updates
 
 def flush_updates(_) :
-    global in_seen_transaction, in_tosee_transaction, db_flush_queued
+    global db_flush_queued
     db_flush_queued = False
-    if in_seen_transaction :
-        seen_db.cursor().execute("end transaction")
-        in_seen_transaction = False
-    #end if
-    if in_tosee_transaction :
-        tosee_db.cursor().execute("end transaction")
-        in_tosee_transaction = False
-    #end if
-    return False
+    for db in WHICH_DB :
+        if in_transaction[db] :
+            database[db].cursor().execute("end transaction")
+            in_transaction[db] = False
+        #end if
+    #end for
+    return False # only run once
 #end flush_updates
 
 def load_image(set_seen) :
@@ -687,6 +694,28 @@ def key_press_event(the_window, the_event) :
         elif key == Gdk.KEY_F12 :
             rotate_image(True)
             show_image()
+        elif key == Gdk.KEY_End :
+            cu = new_update_cursor(WHICH_DB.TOSEE)
+            if cu != None :
+                cu.execute \
+                  (
+                        "update tosee set flags = flags & %(clear_seen)d | %(set_save)d"
+                        " where filename = %(path)s"
+                    %
+                        {
+                            "path" :
+                                sqlite.format_sql_value
+                                  (
+                                    strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)
+                                  ),
+                            "clear_seen" : ~TOSEE.SEEN,
+                            "set_save" : TOSEE.SAVE_FOR_LAST,
+                        }
+                  )
+                cu.close()
+            #end if
+            files[file_index:] = files[file_index + 1:] + [files[file_index]]
+            load_image(None)
         elif key == Gdk.KEY_Delete :
             if enable_trash :
                 last_undo = move_trash_action(files[file_index])
@@ -726,11 +755,11 @@ def set_act(keyword, value, make_action) :
 def add_file(item, files) :
     # for_each_file action to collect names of all image files.
     addit = True # to begin with
-    if seen_db != None :
+    if database[WHICH_DB.SEEN] != None :
         # Use same heuristic as rsync does to speed up matches: look up file
         # size and mod date/time to narrow down the candidates before
         # actually bothering to compute the hash of file contents.
-        cu = seen_db.cursor()
+        cu = database[WHICH_DB.SEEN].cursor()
         info = os.lstat(item)
         if stat.S_ISLNK(info.st_mode) :
             addit = False # don't follow symlinks
@@ -856,10 +885,10 @@ for keyword, value in opts :
             scale_factor = float(value)
         #end if
     elif keyword == "--seen" :
-        if seen_db != None :
+        if database[WHICH_DB.SEEN] != None :
             raise getopt.GetoptError("can specify --seen only once")
         #end if
-        seen_db = open_seen_db(value, DB_OPEN.READWRITECREATE)
+        database[WHICH_DB.SEEN] = open_seen_db(value, DB_OPEN.READWRITECREATE)
     elif keyword == "--sort" :
         for item in value.split(":") :
             if item == "random" :
@@ -888,13 +917,13 @@ for keyword, value in opts :
             file_index = int(value) - 1
         #end if
     elif keyword == "--tosee" :
-        if tosee_db != None :
+        if database[WHICH_DB.TOSEE] != None :
             raise getopt.GetoptError("can specify --tosee only once")
         #end if
-        tosee_db = open_tosee_db(value, DB_OPEN.READWRITECREATE)
+        database[WHICH_DB.TOSEE] = open_tosee_db(value, DB_OPEN.READWRITECREATE)
         tosee_base_path = db_one_record \
           (
-            conn = tosee_db,
+            conn = database[WHICH_DB.TOSEE],
             cmd = "select value from globals where name = 'basepath'",
             mapfn = first_tuple_field
           )
@@ -905,9 +934,9 @@ for keyword, value in opts :
 
 files = []
 for_each_file(args, add_file, files)
-if tosee_db != None :
+if database[WHICH_DB.TOSEE] != None :
     if len(files) != 0 :
-        cu = tosee_db.cursor()
+        cu = database[WHICH_DB.TOSEE].cursor()
         cu.execute("begin transaction")
         for f in files :
             cu.execute \
@@ -920,31 +949,65 @@ if tosee_db != None :
         cu.execute("end transaction")
         cu.close()
     #end if
-    files = list \
-      (
-        os.path.join(tosee_base_path, f)
-        for f in
-            db_iter
+    files = tuple \
+        (
+            list
               (
-                conn = tosee_db,
-                cmd = "select filename from tosee where flags & %d = 0" % TOSEE.SEEN,
-                mapfn = first_tuple_field
+                os.path.join(tosee_base_path, f)
+                for f in
+                    db_iter
+                      (
+                        conn = database[WHICH_DB.TOSEE],
+                        cmd =
+                                "select filename from tosee where flags & %(filter)d = %(want)d"
+                                " order by flags"
+                            %
+                                {
+                                    "filter" : TOSEE.SEEN | TOSEE.SAVE_FOR_LAST,
+                                    "want" : save_for_last,
+                                },
+                        mapfn = first_tuple_field
+                      )
               )
-      )
+            for save_for_last in (0, TOSEE.SAVE_FOR_LAST)
+        )
+    sys.stderr.write("files = %s\n" % repr(files)) # debug
+    if len(files[0]) + len(files[1]) == 0 :
+        raise getopt.GetoptError("Nothing to do")
+    #end if
+else :
+    if len(files) == 0 :
+        raise getopt.GetoptError("Nothing to do")
+    #end if
 #end if
 
-if len(files) == 0 :
-    raise getopt.GetoptError("Nothing to do")
+if database[WHICH_DB.TOSEE] != None :
+    if do_sort != None :
+        do_sort(files[0])
+        do_sort(files[1])
+    #end if
+    if len(files[0]) == 0 :
+        # everything left is in save-for-last category, so
+        # clear that category
+        cu = database[WHICH_DB.TOSEE].cursor()
+        cu.execute \
+          (
+                "update tosee set flags = flags & ~%(clear_save)d"
+            %
+                {"clear_save" : TOSEE.SAVE_FOR_LAST}
+          )
+    #end if
+    files = files[0] + files[1]
+elif do_sort != None :
+    do_sort(files)
 #end if
+file_rotations = {}
+
 if file_index == "random" :
     file_index = random.randrange(len(files))
 elif file_index < 0 or file_index >= len(files) :
     raise getopt.GetoptError("--start index out of range")
 #end if
-if do_sort != None :
-    do_sort(files)
-#end if
-file_rotations = {}
 
 the_image = None # to begin with
 # default_screen = Gdk.display_get_default().get_default_screen()
