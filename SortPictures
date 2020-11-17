@@ -971,7 +971,6 @@ if database[WHICH_DB.TOSEE] != None :
               )
             for save_for_last in (0, TOSEE.SAVE_FOR_LAST)
         )
-    sys.stderr.write("files = %s\n" % repr(files)) # debug
     if len(files[0]) + len(files[1]) == 0 :
         raise getopt.GetoptError("Nothing to do")
     #end if
