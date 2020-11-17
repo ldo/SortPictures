@@ -506,10 +506,15 @@ def update_seen(setit) :
             #end if
             cu.execute \
               (
-                    "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d where filename = %(path)s"
+                    "update tosee set flags = flags & %(clear_seen)d | %(set_seen)d"
+                    " where filename = %(path)s"
                 %
                     {
-                        "path" : sqlite.format_sql_value(strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)),
+                        "path" :
+                            sqlite.format_sql_value
+                              (
+                                strip_prefix(strip_prefix(imagename, "./"), tosee_base_path)
+                              ),
                         "clear_seen" : ~ (TOSEE.SEEN, 0)[setit],
                         "set_seen" : (0, TOSEE.SEEN)[setit],
                     }
@@ -550,13 +555,16 @@ def load_image(set_seen) :
     except GLib.GError :
         the_image = None
     #end try
-    if the_image != None :
-        if set_seen != None :
-            update_seen(set_seen)
-        #end if
+    if the_image != None and set_seen != None :
+        update_seen(set_seen)
     #end if
     if the_image != None and scale_factor != None :
-        the_image = the_image.scale_simple(int(the_image.get_width() * scale_factor), int(the_image.get_height() * scale_factor), scale_how)
+        the_image = the_image.scale_simple \
+          (
+            int(the_image.get_width() * scale_factor),
+            int(the_image.get_height() * scale_factor),
+            scale_how
+          )
     #end if
     rotation = file_rotations.get(file_index, GdkPixbuf.PixbufRotation.NONE)
     if rotation != GdkPixbuf.PixbufRotation.NONE :
@@ -610,7 +618,10 @@ def show_image() :
           )
         scale_display = "?"
     #end if
-    image_label.set_text("%u/%u: %s (%s)" % (file_index + 1, len(files), files[file_index], scale_display))
+    image_label.set_text \
+      (
+        "%u/%u: %s (%s)" % (file_index + 1, len(files), files[file_index], scale_display)
+      )
 #end show_image
 
 def play_movie() :
@@ -796,7 +807,7 @@ def order(files) :
             cache[filename]
     #end get_key
 
-#begin
+#begin order
     files.sort(key = get_key, reverse = reversed_sort)
 #end order
 
