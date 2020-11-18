@@ -1012,7 +1012,11 @@ the_image = None # to begin with
 # default_screen = Gdk.display_get_default().get_default_screen()
 class MaxImageDisplay :
     "maximum bounds of image display."
-    r = Gdk.Display.get_default().get_primary_monitor().get_geometry()
+    r = Gdk.Display.get_default().get_primary_monitor()
+    if r == None :
+        r = Gdk.Display.get_default().get_monitor(0)
+    #end if
+    r = r.get_geometry()
     x = r.width - 32
     y = r.height - 96
     del r
