@@ -89,17 +89,19 @@
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
 #
-# Copyright 2006-2019 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006-2021 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
 import sys
 import os
+import struct
 import stat
 from enum import \
     Enum, \
     IntEnum
 import re
+import gzip
 import random
 import hashlib
 import subprocess
@@ -164,6 +166,14 @@ def strip_prefix(s, prefix) :
     return \
         s
 #end strip_prefix
+
+class Failure(Exception) :
+
+    def __init__(self, msg) :
+        self.msg = msg
+    #end __init__
+
+#end Failure
 
 #+
 # Useful database stuff
@@ -297,6 +307,83 @@ def get_file_hash(filename) :
     return \
         hash.digest()
 #end get_file_hash
+
+#+
+# Special format handlers
+#-
+
+def extract_blendfile_preview(filename) :
+    "tries to extract the preview image, if any, from a .blend file."
+    image = None # to begin with
+    open_try = [gzip.open, open]
+    while True :
+        f = open_try.pop(0)(filename, "rb")
+        try :
+            header = f.read(12)
+        except gzip.BadGzipFile :
+            f.close()
+            # and try uncompressed this time
+        else :
+            break
+        #end try
+    #end while
+    if len(header) != 12 or header[:7] != b"BLENDER" :
+        raise Failure("doesn’t look like a Blender document")
+    #end if
+    sixt4bit = header[7] == ord(b"-")
+    endian = {b"v" : "<", b"V" : ">"}[bytes((header[8],))]
+    header_struct = "%s4cI%sII" % (endian, ("L", "Q")[sixt4bit])
+    header_size = struct.calcsize(header_struct)
+    while True :
+        header = f.read(header_size)
+        if len(header) != header_size :
+            raise Failure("I seem to have hit EOF %d expected %d" % (len(header), header_size))
+        #end if
+        b0, b1, b2, b3, datasize, oldaddr, dna_index, dna_count = struct.unpack(header_struct, header)
+        blockcode = b0 + b1 + b2 + b3
+        if blockcode == b"GLOB" :
+            raise Failure("no preview present")
+        #end if
+        if blockcode == b"TEST" :
+            if datasize < 8 :
+                raise Failure("preview block too short")
+            #end if
+            data = f.read(datasize)
+            width, height = struct.unpack("%sii" % endian, data[:8])
+            if width * height * 4 != datasize - 8 :
+                raise Failure \
+                  (
+                    "incorrect preview data size, %d * %d * 4 != %d - 8" % (width, height, datasize)
+                  )
+            #end if
+            data = data[8:]
+            image = GdkPixbuf.Pixbuf.new_from_bytes \
+              (
+                data = GLib.Bytes.new(data),
+                colorspace = GdkPixbuf.Colorspace.RGB,
+                has_alpha = True,
+                bits_per_sample = 8,
+                width = width,
+                height = height,
+                rowstride = width * 4
+              )
+            image = image.flip(False)
+            break
+        #end if
+        f.seek(datasize, os.SEEK_CUR)
+    #end while
+    f.close()
+    return \
+        image
+#end extract_blendfile_preview
+
+special_display = \
+    {
+        ".blend" :
+            {
+                "action" : extract_blendfile_preview,
+            },
+    }
 
 #+
 # Keypress actions
@@ -562,6 +649,17 @@ def load_image(set_seen) :
     except GLib.GError :
         the_image = None
     #end try
+    if the_image == None :
+        fileext = os.path.splitext(imagename)[1]
+        if fileext in special_display :
+            try :
+                the_image = special_display[fileext]["action"](imagename)
+            except Exception as fail :
+                sys.stderr.write("trying to display %s file %s: %s\n" % (fileext, imagename, repr(fail)))
+                the_image = None
+            #end try
+        #end if
+    #end if
     if the_image != None and set_seen != None :
         update_seen(set_seen)
     #end if
