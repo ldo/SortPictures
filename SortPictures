@@ -342,7 +342,8 @@ def extract_blendfile_preview(filename) :
         b0, b1, b2, b3, datasize, oldaddr, dna_index, dna_count = struct.unpack(header_struct, header)
         blockcode = b0 + b1 + b2 + b3
         if blockcode == b"GLOB" :
-            raise Failure("no preview present")
+            # raise Failure("no preview present")
+            break # just return None
         #end if
         if blockcode == b"TEST" :
             if datasize < 8 :
