@@ -81,13 +81,17 @@
 #         enable the use of the DEL key to move the file into the Trash folder.
 #
 # Standard keystrokes are:
+#    Escape -- exit
 #    right or down arrow -- go to next picture
 #    left or up arrow -- go to previous picture
 #    F1 -- write filename path to standard output
 #    F11 -- rotate picture anticlockwise
 #    F12 -- rotate picture clockwise
+#    End -- (only if --tosee was specified) move the current picture
+#           to the show-last section of the database
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
+#    DEL -- (only if --trash was specified) move current picture to trash
 #
 # Copyright 2006-2021 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
