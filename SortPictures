@@ -87,7 +87,9 @@
 #    F1 -- write filename path to standard output
 #    F11 -- rotate picture anticlockwise
 #    F12 -- rotate picture clockwise
-#    End -- (only if --tosee was specified) move the current picture
+#    END -- shuffle current picture to some later point in sequence so
+#           it will appear again
+#    Ctrl-END -- (only if --tosee was specified) move the current picture
 #           to the show-last section of the database
 #    SPACE -- try to play file as a movie
 #    CTRL/Z -- undo last move/movec/movesub action
@@ -798,6 +800,32 @@ def key_press_event(the_window, the_event) :
             rotate_image(True)
             show_image()
         elif key == Gdk.KEY_End :
+            if len(files) > file_index + 1 :
+                update_seen(False)
+                new_pos = random.randrange(file_index + 1, len(files))
+                files[file_index], files[new_pos] = files[new_pos], files[file_index]
+                load_image(None)
+            #end if
+        elif key == Gdk.KEY_Delete :
+            if enable_trash :
+                last_undo = move_trash_action(files[file_index])
+            #end if
+        elif key == Gdk.KEY_space :
+            play_movie()
+        elif key == Gdk.KEY_Escape :
+            destroy_window(main_window)
+        elif key in actions :
+            last_undo = actions[key](files[file_index])
+        #end if
+    elif modifiers == masks.CONTROL_MASK :
+        if key == Gdk.KEY_z :
+            if last_undo != None :
+                do = last_undo
+                last_undo = None
+                do()
+                load_image(None)
+            #end if
+        elif key == Gdk.KEY_End :
             cu = new_update_cursor(WHICH_DB.TOSEE)
             if cu != None :
                 cu.execute \
@@ -819,25 +847,6 @@ def key_press_event(the_window, the_event) :
             #end if
             files[file_index:] = files[file_index + 1:] + [files[file_index]]
             load_image(None)
-        elif key == Gdk.KEY_Delete :
-            if enable_trash :
-                last_undo = move_trash_action(files[file_index])
-            #end if
-        elif key == Gdk.KEY_space :
-            play_movie()
-        elif key == Gdk.KEY_Escape :
-            destroy_window(main_window)
-        elif key in actions :
-            last_undo = actions[key](files[file_index])
-        #end if
-    elif modifiers == masks.CONTROL_MASK :
-        if key == Gdk.KEY_z :
-            if last_undo != None :
-                do = last_undo
-                last_undo = None
-                do()
-                load_image(None)
-            #end if
         #end if
     #end if
     return True
