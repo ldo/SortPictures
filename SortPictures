@@ -40,6 +40,10 @@
 #         subdirectory of dir with the same name as its current immediate parent
 #         directory. The destination subdirectory of that name will be created
 #         if it doesn’t already exist.
+#    --notable=notabledb
+#         specifies the name of an SQLite database file in which to record
+#         names of images being shown when F1 is pressed. This is in addition
+#         to writing the names of the files to stdout.
 #    --random
 #         equivalent to --sort=random
 #    --scale=scalefactor[,how]
@@ -218,7 +222,8 @@ def open_db_common(dbname, mode, test_table, test_field, create_tables) :
           (
             dbname,
             flags =
-                    (sqlite.SQLITE_OPEN_READONLY, sqlite.SQLITE_OPEN_READWRITE)[mode >= DB_OPEN.READWRITE]
+                    (sqlite.SQLITE_OPEN_READONLY, sqlite.SQLITE_OPEN_READWRITE)
+                        [mode >= DB_OPEN.READWRITE]
                 |
                     (0, sqlite.SQLITE_OPEN_CREATE)[mode == DB_OPEN.READWRITECREATE]
           )
@@ -243,6 +248,25 @@ def open_db_common(dbname, mode, test_table, test_field, create_tables) :
     return \
         result
 #end open_db_common
+
+def open_notable_db(dbname, mode) :
+    "opens the specified notable-images database file and returns a new connection."
+    return \
+        open_db_common \
+          (
+            dbname = dbname,
+            mode = mode,
+            test_table = "notable",
+            test_field = "filename",
+            create_tables =
+                [
+                    "create table notable\n"
+                    "  (\n"
+                    "    filename varchar primary key not null\n"
+                    "  )\n",
+                ]
+          )
+#end open_notable_db
 
 def open_seen_db(dbname, mode) :
     "opens the specified images-seen database file and returns a new connection."
@@ -535,8 +559,10 @@ def move_trash_action(filename) :
 # last_undo -- function to invoke to undo last action (if any)
 
 class WHICH_DB(Enum) :
-    SEEN = 0
-    TOSEE = 1
+    # numbers do not mean anything
+    NOTABLE = 1
+    SEEN = 2
+    TOSEE = 3
 #end WHICH_DB
 
 database = dict((db, None) for db in WHICH_DB)
@@ -574,6 +600,21 @@ def new_update_cursor(which_db : WHICH_DB) :
     return \
         cu
 #end new_update_cursor
+
+def update_notable() :
+    cu = new_update_cursor(WHICH_DB.NOTABLE)
+    if cu != None :
+        cu.execute \
+          (
+                "insert or ignore into notable (filename) values (%(filename)s)"
+            %
+                {
+                    "filename" : sqlite.format_sql_value(imagename),
+                }
+          )
+        cu.close()
+    #end if
+#end update_notable
 
 def update_seen(setit) :
     if setit != None :
@@ -793,6 +834,7 @@ def key_press_event(the_window, the_event) :
             #end if
         elif key == Gdk.KEY_F1 :
             sys.stdout.write(shlex.quote(files[file_index]) + "\n")
+            update_notable()
         elif key == Gdk.KEY_F11 :
             rotate_image(False)
             show_image()
@@ -956,7 +998,7 @@ opts, args = getopt.getopt \
   (
     sys.argv[1:],
     "",
-    ["act=", "copy=", "copyc=", "move=", "movec=", "movesub=",
+    ["act=", "copy=", "copyc=", "move=", "movec=", "movesub=", "notable=",
         "random", "scale=", "seen=", "sort=", "start=", "tosee=", "trash"]
   )
 
@@ -975,6 +1017,11 @@ for keyword, value in opts :
         set_act(keyword, value, lambda Arg : make_move_copy_action(Arg, False, keyword == "--movec"))
     elif keyword == "--movesub" :
         set_act(keyword, value, make_move_sub_action)
+    elif keyword == "--notable" :
+        if database[WHICH_DB.NOTABLE] != None :
+            raise getopt.GetoptError("can specify --notable only once")
+        #end if
+        database[WHICH_DB.NOTABLE] = open_notable_db(value, DB_OPEN.READWRITECREATE)
     elif keyword == "--random" :
         do_sort = random.shuffle
     elif keyword == "--scale" :
