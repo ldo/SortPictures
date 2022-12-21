@@ -25,6 +25,12 @@
 #         which, when typed by the user, will copy the current file into the
 #         directory «dir». The directory will be created when the first file is moved
 #         into it if it doesn’t already exist.
+#    --from-notable=«notabledb»
+#         specifies the name of an SQLite database file from which to
+#         load the names of image files to show. This database should
+#         have been previously created and filled in with the
+#         --notable=«notabledb» option. May be specified multiple times,
+#         to load image names from multiple database files.
 #    --move=«k»:«dir»
 #         defines a key binding, where «k» is a single ASCII character
 #         which, when typed by the user, will move the current file into the
@@ -99,7 +105,7 @@
 #    CTRL/Z -- undo last move/movec/movesub action
 #    DEL -- (only if --trash was specified) move current picture to trash
 #
-# Copyright 2006-2021 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
+# Copyright 2006-2022 by Lawrence D’Oliveiro <ldo@geek-central.gen.nz>.
 # Licensed under CC-BY-SA <http://creativecommons.org/licenses/by-sa/4.0/>.
 #-
 
@@ -998,10 +1004,11 @@ opts, args = getopt.getopt \
   (
     sys.argv[1:],
     "",
-    ["act=", "copy=", "copyc=", "move=", "movec=", "movesub=", "notable=",
-        "random", "scale=", "seen=", "sort=", "start=", "tosee=", "trash"]
+    ["act=", "copy=", "copyc=", "from-notable=", "move=", "movec=", "movesub=",
+        "notable=", "random", "scale=", "seen=", "sort=", "start=", "tosee=", "trash"]
   )
 
+files = []
 actions = {}
 do_sort = None
 reversed_sort = False
@@ -1011,6 +1018,18 @@ scale_factor = None
 for keyword, value in opts :
     if keyword == "--act" :
         set_act(keyword, value, make_run_cmd_action)
+    elif keyword == "--from-notable" :
+        db = open_notable_db(value, DB_OPEN.READONLY)
+        for item in db_iter \
+          (
+            db,
+            "select filename from notable",
+            first_tuple_field
+          ) \
+        :
+            files.append(item)
+        #end for
+        db.close()
     elif keyword == "--copy" or keyword == "--copyc" :
         set_act(keyword, value, lambda Arg : make_move_copy_action(Arg, True, keyword == "--copyc"))
     elif keyword == "--move" or keyword == "--movec" :
@@ -1094,7 +1113,6 @@ for keyword, value in opts :
     #end if
 #end for
 
-files = []
 for_each_file(args, add_file, files)
 if database[WHICH_DB.TOSEE] != None :
     if len(files) != 0 :
