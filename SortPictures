@@ -10,57 +10,57 @@
 # where each “item” is either the name of an image file or of a
 # directory containg image files to be shown. Valid options are:
 #
-#     --act=k:cmd
-#         defines a key binding, where k is a single ASCII character
-#         which, when typed by the user, invokes cmd. This option can be
-#         specified multiple times with different k values, to define multiple
-#         key bindings. When cmd is invoked, occurrences of %s are substituted
+#     --act=«k»:«cmd»
+#         defines a key binding, where «k» is a single ASCII character
+#         which, when typed by the user, invokes «cmd». This option can be
+#         specified multiple times with different «k» values, to define multiple
+#         key bindings. When «cmd» is invoked, occurrences of %s are substituted
 #         with the full name of the image file.
-#    --copy=k:dir
-#         defines a key binding, where k is a single ASCII character
+#    --copy=«k»:«dir»
+#         defines a key binding, where «k» is a single ASCII character
 #         which, when typed by the user, will copy the current file into the
-#         directory dir, which must already exist.
-#    --copyc=k:dir
-#         defines a key binding, where k is a single ASCII character
+#         directory «dir», which must already exist.
+#    --copyc=«k»:«dir»
+#         defines a key binding, where «k» is a single ASCII character
 #         which, when typed by the user, will copy the current file into the
-#         directory dir. The directory will be created when the first file is moved
+#         directory «dir». The directory will be created when the first file is moved
 #         into it if it doesn’t already exist.
-#    --move=k:dir
-#         defines a key binding, where k is a single ASCII character
+#    --move=«k»:«dir»
+#         defines a key binding, where «k» is a single ASCII character
 #         which, when typed by the user, will move the current file into the
-#         directory dir, which must already exist.
-#    --movec=k:dir
-#         defines a key binding, where k is a single ASCII character
+#         directory «dir», which must already exist.
+#    --movec=«k»:«dir»
+#         defines a key binding, where «k» is a single ASCII character
 #         which, when typed by the user, will move the current file into the
-#         directory dir. The directory will be created when the first file is moved
+#         directory «dir». The directory will be created when the first file is moved
 #         into it if it doesn’t already exist.
-#    --movesub=k:dir
-#         defines a key binding, where k is a single ASCII character
+#    --movesub=«k»:«dir»
+#         defines a key binding, where «k» is a single ASCII character
 #         which, when typed by the user, will move the current file into the
-#         subdirectory of dir with the same name as its current immediate parent
+#         subdirectory of «dir» with the same name as its current immediate parent
 #         directory. The destination subdirectory of that name will be created
 #         if it doesn’t already exist.
-#    --notable=notabledb
+#    --notable=«notabledb»
 #         specifies the name of an SQLite database file in which to record
 #         names of images being shown when F1 is pressed. This is in addition
 #         to writing the names of the files to stdout.
 #    --random
 #         equivalent to --sort=random
-#    --scale=scalefactor[,how]
+#    --scale=«scalefactor»[,«how»]
 #         specifies a scale factor and method to be applied to each image before display.
-#         scalefactor is interpreted as a percentage if it ends with a “%”, otherwise
+#         «scalefactor» is interpreted as a percentage if it ends with a “%”, otherwise
 #         as a number. If omitted, the default is 1.0 (100%).
-#         how is the scaling method: “nearest”, “tiles”, “bilinear” or “hyper”
+#         «how» is the scaling method: “nearest”, “tiles”, “bilinear” or “hyper”
 #         (see https://developer.gnome.org/gdk-pixbuf/stable/gdk-pixbuf-Scaling.html#gdk-pixbuf-scale-simple
 #         for the details). If omitted, the default is “tiles”.
-#    --seen=seendb
+#    --seen=«seendb»
 #         specifies the name of an SQLite database file in which to record
 #         details about images already seen. As each image is viewed, it is
 #         added to the database. Images already in the database are skipped.
 #         NOTE: Using this feature can get slow as the number of records
 #         in the database grows beyond, say, a few hundred.
-#    --sort=how
-#         displays the images in order according to how:
+#    --sort=«how»
+#         displays the images in order according to «how»:
 #             none (default) -- no special sorting
 #             mod -- sort by last-mod date
 #             name -- sort by name
@@ -68,11 +68,11 @@
 #                 digits numerically
 #             random -- display in random order
 #             reversed -- can be combined with mod or name to reverse sort order
-#    --start=n
-#         start the display at picture n in the sequence, instead
+#    --start=«n»
+#         start the display at picture «n» in the sequence, instead
 #         of picture 1. Instead of an integer, you can specify the
 #         word “random” to pick a random starting point.
-#    --tosee=toseedb
+#    --tosee=«toseedb»
 #         specifies the name of an SQLite database file in which to record
 #         details about images not already seen. If specified instead of any
 #         file/directory names, then this database should already have been
