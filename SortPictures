@@ -1105,7 +1105,7 @@ for keyword, value in opts :
             cmd = "select value from globals where name = 'basepath'",
             mapfn = first_tuple_field
           )
-        if not tosee_base_path.endswith("/") :
+        if tosee_base_path != "" and not tosee_base_path.endswith("/") :
             tosee_base_path += "/"
         #end if
     elif keyword == "--trash" :
